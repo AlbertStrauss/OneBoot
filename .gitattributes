@@ -1,0 +1,8 @@
+* text=auto
+*.py text eol=lf
+*.sh text eol=lf
+*.in text eol=lf
+*.h text eol=lf
+*.c text eol=lf
+autoinstall/* text eol=lf
+*.png binary

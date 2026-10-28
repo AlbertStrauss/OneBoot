@@ -1,0 +1,43 @@
+#!/bin/sh
+# A live-session-only handoff to Subiquity; no target disk is selected or written.
+case "${1-}" in prereqs) exit 0 ;; esac
+[ "${ONEBOOT_LEGACY:-}" = 1 ] || exit 0
+[ -n "${DEVICE:-}" ] && [ -r /run/oneboot-net.conf ] || exit 1
+. /run/oneboot-net.conf
+ob_mac=$(cat "/sys/class/net/${DEVICE}/address")
+case "${ONEBOOT_PREFIX}" in ''|*[!0-9]*) exit 1 ;; esac
+[ "$ONEBOOT_PREFIX" -ge 8 ] && [ "$ONEBOOT_PREFIX" -le 32 ] || exit 1
+mkdir -p /root/etc/netplan /root/etc/cloud/cloud.cfg.d
+# The live Subiquity image ships all-en/all-eth wildcard DHCP definitions.
+# Those match before our MAC-specific definition in systemd-networkd. Preserve
+# them outside netplan's input directory, in the RAM overlay only.
+mkdir -p /root/etc/oneboot/netplan-original
+for ob_yaml in /root/etc/netplan/*.yaml; do
+    [ -f "$ob_yaml" ] || continue
+    mv "$ob_yaml" /root/etc/oneboot/netplan-original/
+done
+# Use the actual NIC name as the netplan ID to merge with casper's config.
+cat > /root/etc/netplan/99-oneboot-static.yaml <<EOF
+network:
+  version: 2
+  ethernets:
+    ${DEVICE}:
+      match:
+        macaddress: "${ob_mac}"
+      dhcp4: false
+      dhcp6: false
+      addresses: ["${IPV4ADDR}/${ONEBOOT_PREFIX}"]
+      routes:
+        - to: 0.0.0.0/0
+          via: ${IPV4GATEWAY}
+          on-link: true
+      nameservers:
+        addresses: [${IPV4DNS0}]
+EOF
+chmod 0600 /root/etc/netplan/99-oneboot-static.yaml
+printf 'network: {config: disabled}\n' > /root/etc/cloud/cloud.cfg.d/99-oneboot-network.cfg
+printf 'nameserver %s\n' "$IPV4DNS0" > /run/oneboot-resolv.conf
+# Both releases use systemd-resolved in the live session.
+mkdir -p /run/systemd/resolve
+cp /run/oneboot-resolv.conf /run/systemd/resolve/stub-resolv.conf
+echo 'OneBoot: static network handed to the interactive live installer.'

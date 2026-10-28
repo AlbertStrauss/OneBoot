@@ -1,21 +1,57 @@
 # OneBoot
 
-OneBoot v1.3 is being rebuilt as a small standalone BIOS/UEFI boot ISO with optional Ubuntu autoinstall, adapted from the GPL-licensed [FluxBilling OS Installer](https://github.com/FluxBilling-app/FluxBilling-OS-Installer).
+OneBoot v1.3 starts directly into its static NIC/IPv4 configuration and OS menu,
+without netboot.xyz. Ubuntu Server 22.04.5, 24.04.4 and 26.04 offer Manual or Auto.
+Manual is the default. Auto requires a hostname, the same visible password
+twice, and explicit Go. It installs boot/root on the first eligible fixed disk;
+it does not create RAID or wipe all disks. Active holders on the first disk
+cause a stop for operator review.
 
-## Current v1.3 scope
+The operator's password is used for root and the sudo account `user`, including
+SSH. Credentials travel in a private RAM cpio file, outside kernel arguments
+and the archived autoinstall YAML. The installer does not have a default password.
 
-Enter NIC and static IPv4 settings, choose Ubuntu 22.04, 24.04 or 26.04, then select **Manual** or **Auto**. Auto asks for hostname and a visible password twice, checks agreement, and requires an explicit **Go** on a review screen.
+**Qualification in progress.** The current candidate passed helper/static checks,
+the full Ubuntu24 UEFI install/cold-boot/login/two-disk test and existing-menu /
+controlled-download-error checks. The remaining full installation matrix is
+still running. Do not treat this as a hardware-qualified production release.
 
-Auto targets the first eligible fixed disk, with normal boot/root partitions. Other disks are outside its storage layout. The disk selector performs no global wipe or RAID teardown. A busy first disk stops the automatic path for operator review. Manual mode supplies no autoinstall profile.
+## Boot resources
 
-Credentials are carried in a private RAM file, not the kernel command line. Root and the `user` sudo account receive the confirmed password; this is shown before Go. Source attribution and the GPL license are retained in the project and boot media.
+Original, matched Ubuntu kernel/initrd pairs are published in
+[ubuntu-live-boot-v1.3](https://github.com/AlbertStrauss/OneBoot/releases/tag/ubuntu-live-boot-v1.3).
+The publishing workflow verifies the exact Canonical ISO SHA256 before extracting
+and verifying each pair. Versions and hashes are pinned in
+`config/ubuntu-autoinstall.json`.
 
-## Paired boot files
+The full ISO downloads into RAM from Canonical or a measured public Ubuntu
+release mirror. Fixed versions retain their exact filename, and the initrd's
+compose UUID check stays enabled. This is not a runtime full-ISO SHA256 check.
+Allow at least 8 GiB RAM and internet access to the HTTPS boot/download sources.
+The loaders are unsigned; use ordinary BIOS/UEFI boot with Secure Boot disabled.
 
-The [Ubuntu boot-pair release](https://github.com/AlbertStrauss/OneBoot/releases/tag/ubuntu-live-boot-v1.3) contains unmodified kernel/initrd pairs extracted from the exact Canonical Ubuntu 22.04.5, 24.04.4 and 26.04 ISOs. The publishing workflow checks both the original ISO hash and the extracted file hashes before uploading.
+Ubuntu Auto avoids installer self-refresh and update/security pockets during
+installation, then restores the installed system's repositories. Other OS
+entries retain their existing interactive VPS-backed paths and access policy.
 
-Full Ubuntu images download from Canonical or official mirrors into RAM. The mirror selector accepts fixed release filenames and retains the exact requested version. The downloaded medium must match the boot initrd's UUID. Allow 8 GiB RAM or more on installation servers.
+## Source and builds
 
-The boot-media candidate is still undergoing disposable-disk installation tests; published boot files alone do not establish that the whole ISO is qualified. Secure Boot and physical-hardware qualification are separate.
+See `docs/ONEBOOT-V1.3-AUTOINSTALL.md` and `NOTICE-FLUXBILLING.md`. The Ubuntu
+helpers are adapted from pinned FluxBilling source with GPL attribution retained.
+The first-disk policy, private credential transport and Manual/Auto workflow
+are OneBoot adaptations.
 
-The older `ubuntu-24.04.4-oneboot-v1.3` split-image release belongs to an abandoned recovery prototype and is not the current autoinstall download path. No keys or installer credentials belong in this repository.
+`scripts/build-oneboot-v1.3-vps.py` builds in a separate
+`/srv/oneboot/staging/oneboot-v1.3-autoinstall-*` root. It requires the existing
+pinned OneBoot asset store, the iPXE checkout at
+`8958a4a66022640d622dec1ad5f2ddf77adfcd0f`, Linux build tools, xorriso, mtools,
+syslinux and current public CA certificates. It does not replace a delivered
+production ISO. Full Ubuntu ISOs and the other OS asset store are not in Git.
+
+Validation scripts cover generated profiles and repository restoration,
+first-disk selection/protection, actual ISO contents, BIOS/UEFI menus and full
+disposable two-disk installs. Windows test helpers use only project disk files
+and loopback management ports; their credentials are synthetic VM test data.
+
+The earlier Ubuntu24 split-image mirror under `mirrors/` is historical and is
+not used by this autoinstall design.

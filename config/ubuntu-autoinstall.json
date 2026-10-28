@@ -1,0 +1,26 @@
+{
+  "boot_release": "https://github.com/AlbertStrauss/OneBoot/releases/download/ubuntu-live-boot-v1.3",
+  "versions": [
+    {
+      "key": "2204", "version": "22.04.5", "series": "22.04",
+      "iso": "ubuntu-22.04.5-live-server-amd64.iso",
+      "iso_sha256": "9bc6028870aef3f74f4e16b900008179e78b130e6b0b9a140635434a46aa98b0",
+      "kernel_sha256": "6f8b2d5065ad56cb3c1652e88752817ccedf60ec9472be561972434b00ed27f5",
+      "initrd_sha256": "1b8a42e409e3ea968d3d819690c80fae0dcb12ac4503d752241af97605b5234e"
+    },
+    {
+      "key": "2404", "version": "24.04.4", "series": "24.04",
+      "iso": "ubuntu-24.04.4-live-server-amd64.iso",
+      "iso_sha256": "e907d92eeec9df64163a7e454cbc8d7755e8ddc7ed42f99dbc80c40f1a138433",
+      "kernel_sha256": "528d909745819a1464848a2c4d91c609db4f54b33ccae7069aad4178fb34606f",
+      "initrd_sha256": "b91245030e13a1dc835205b77561323b26bea1cbbf4f5ed43aa0cfff08d4e353"
+    },
+    {
+      "key": "2604", "version": "26.04", "series": "26.04",
+      "iso": "ubuntu-26.04-live-server-amd64.iso",
+      "iso_sha256": "dec49008a71f6098d0bcfc822021f4d042d5f2db279e4d75bdd981304f1ca5d9",
+      "kernel_sha256": "6f11cd68fc0d181bb4f9a72e2d0ec6a1c2a69a59f7b9bd6bf9538630d1102456",
+      "initrd_sha256": "4f460425d2be252f95e35608128043ed2f2bcd5ce8c4d151d074a312a25f92c1"
+    }
+  ]
+}

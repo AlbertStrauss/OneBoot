@@ -1,0 +1,44 @@
+#!/bin/sh
+set -eu
+
+# Ubuntu's BusyBox wget passes an IPv4 endpoint (address plus port) to
+# `openssl s_client -verify_ip`. OpenSSL expects only the address there and
+# exits before connecting when it receives a value such as 192.0.2.10:443.
+# Keep certificate verification enabled and remove only the numeric port from
+# the argument immediately following -verify_ip.
+if [ "${1-}" != "s_client" ]; then
+    exec /usr/bin/openssl.real "$@"
+fi
+
+rewritten_args=
+expect_verify_ip=0
+
+for argument do
+    if [ "${expect_verify_ip}" -eq 1 ]; then
+        case "${argument}" in
+            *.*.*.*:[0-9]*) argument=${argument%:*} ;;
+        esac
+        expect_verify_ip=0
+    elif [ "${argument}" = "-verify_ip" ]; then
+        expect_verify_ip=1
+    fi
+
+    if [ -n "${rewritten_args}" ]; then
+        rewritten_args="${rewritten_args}
+${argument}"
+    else
+        rewritten_args=${argument}
+    fi
+done
+
+old_ifs=${IFS}
+IFS='
+'
+set -f
+# Intentional word splitting on newlines reconstructs the original argv while
+# retaining spaces inside individual arguments.
+# shellcheck disable=SC2086
+set -- ${rewritten_args}
+IFS=${old_ifs}
+
+exec /usr/bin/openssl.real "$@"

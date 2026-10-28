@@ -1,0 +1,73 @@
+#!/bin/sh
+# Sourced by casper in the live initramfs only. Never writes installation disks.
+ONEBOOT_LEGACY=
+ONEBOOT_URL=
+ONEBOOT_PREFIX=
+ONEBOOT_DNS=
+for ob_arg in $(cat /proc/cmdline); do
+    case "$ob_arg" in
+        oneboot_legacy=1) ONEBOOT_LEGACY=1 ;;
+        oneboot.iso=*) ONEBOOT_URL=${ob_arg#oneboot.iso=} ;;
+        oneboot.prefix=*) ONEBOOT_PREFIX=${ob_arg#oneboot.prefix=} ;;
+        oneboot.dns=*) ONEBOOT_DNS=${ob_arg#oneboot.dns=} ;;
+    esac
+done
+export ONEBOOT_LEGACY ONEBOOT_PREFIX
+
+oneboot_https_mount() {
+    case "$ONEBOOT_URL" in
+        https://*) ;;
+        *) echo 'OneBoot refuses non-HTTPS ISO downloads'; return 1 ;;
+    esac
+    modprobe af_packet || return 1
+    udevadm trigger
+    udevadm settle
+    # Use the hypervisor's normal RNG device if present. Do not weaken TLS,
+    # inject a shared random seed, or bypass kernel entropy initialization.
+    modprobe virtio_pci >/dev/null 2>&1 || true
+    /opt/oneboot-rng/insmod /opt/oneboot-rng/virtio-rng.ko || \
+        [ -d /sys/module/virtio_rng ] || echo 'OneBoot: virtual RNG unavailable; using existing entropy sources.'
+    # Bionic ipconfig accepts seven fields, not the newer eighth DNS field.
+    # Put the BOOTIF-selected NIC into field six explicitly (multi-NIC safe).
+    ob_mac=$(printf '%s' "${BOOTIF#01-}" | tr '-' ':')
+    ob_device=
+    for ob_path in /sys/class/net/*; do
+        [ -r "$ob_path/address" ] || continue
+        if [ "$(cat "$ob_path/address")" = "$ob_mac" ]; then ob_device=${ob_path##*/}; break; fi
+    done
+    [ -n "$ob_device" ] || return 1
+    ob_ip=$(printf '%s' "$IP" | cut -d: -f1)
+    ob_gateway=$(printf '%s' "$IP" | cut -d: -f3)
+    ob_mask=$(printf '%s' "$IP" | cut -d: -f4)
+    IP="${ob_ip}::${ob_gateway}:${ob_mask}::${ob_device}:none"
+    export IP
+    configure_networking
+    export DEVICE
+    [ -n "$DEVICE" ] && [ -f "/run/net-${DEVICE}.conf" ] || return 1
+    case "$ONEBOOT_DNS" in ''|*[!0-9.]*) return 1 ;; esac
+    printf "IPV4DNS0='%s'\n" "$ONEBOOT_DNS" >> "/run/net-${DEVICE}.conf"
+    printf 'nameserver %s\n' "$ONEBOOT_DNS" > /etc/resolv.conf
+    cp "/run/net-${DEVICE}.conf" /run/oneboot-net.conf || return 1
+    # NETBOOT prevents old casper from treating the kernel ip= string as its
+    # unrelated comma-separated desktop static-IP syntax.
+    NETBOOT=oneboot
+    export NETBOOT
+    mkdir -p /run/oneboot-iso
+    mount -t tmpfs -o size=75%,mode=0700 tmpfs /run/oneboot-iso || return 1
+    echo 'OneBoot: downloading the original Ubuntu ISO to RAM (verified HTTPS).'
+    /opt/oneboot-wget/ld-linux-x86-64.so.2 \
+        --library-path /opt/oneboot-wget /opt/oneboot-wget/wget \
+        --https-only --max-redirect=0 --timeout=30 --tries=3 \
+        --ca-certificate=/opt/oneboot-wget/ca-certificates.crt \
+        -O /run/oneboot-iso/ubuntu.iso.part "$ONEBOOT_URL" || return 1
+    ob_hash=$(cat /conf/oneboot-iso.sha256)
+    printf '%s  %s\n' "$ob_hash" /run/oneboot-iso/ubuntu.iso.part | \
+        /opt/oneboot-wget/ld-linux-x86-64.so.2 --library-path /opt/oneboot-wget \
+        /opt/oneboot-wget/sha256sum -c - || return 1
+    mv /run/oneboot-iso/ubuntu.iso.part /run/oneboot-iso/ubuntu.iso || return 1
+    modprobe loop || return 1
+    modprobe iso9660 || return 1
+    mount -t iso9660 -o loop,ro /run/oneboot-iso/ubuntu.iso "$mountpoint" || return 1
+    is_casper_path "$mountpoint" || return 1
+    echo 'OneBoot: full ISO verified and mounted read-only from RAM.'
+}

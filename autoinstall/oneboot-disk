@@ -1,0 +1,68 @@
+#!/bin/sh
+# Adapted from FluxBilling src/flux-disks (GPL-2.0-or-later).
+S=${oneboot_sys:-/sys}
+D=${oneboot_dev:-/dev}
+P=${oneboot_proc:-/proc}
+
+say() {
+	echo "OneBoot: $*" >&2
+	echo "<5>OneBoot: $*" >> "${oneboot_kmsg:-/dev/kmsg}" 2>/dev/null || :
+}
+
+# /dev node for a /sys/block name - sysfs spells nested nodes with '!'
+# (/sys/block/cciss!c0d0 is /dev/cciss/c0d0).
+node() {
+	echo "$D/$(echo "$1" | sed 's,!,/,g')"
+}
+
+eligible() { # eligible <name>
+	local b=$S/block/$1 n
+	case $1 in
+	loop*|ram*|zram*|dm-*|md*|sr*|fd*|nbd*|drbd*|zd*|rbd*|pmem*|mtd*|ubi*|bcache*)
+		return 1 ;;
+	mmcblk*boot*|mmcblk*rpmb|nvme*c*)
+		return 1 ;;
+	esac
+	[ "$(cat "$b/removable" 2>/dev/null)" = 0 ] || return 1
+	[ "$(cat "$b/ro" 2>/dev/null)" = 0 ] || return 1
+	[ "$(cat "$b/hidden" 2>/dev/null || echo 0)" = 0 ] || return 1
+	n=$(cat "$b/size" 2>/dev/null)
+	[ "${n:-0}" -gt 0 ] 2>/dev/null || return 1
+	# The device path names the bus: .../usb2/2-1/... for USB (UAS included),
+	# .../rport-2:0-0/... for Fibre Channel, .../session3/... for iSCSI.
+	case $(readlink -f "$b" 2>/dev/null) in
+	*/usb[0-9]*|*/rport-*|*/session[0-9]*)
+		return 1 ;;
+	esac
+	return 0
+}
+
+describe() { # describe <name> - "/dev/sda (447 GiB INTEL SSDSC2KB48)"
+	local b=$S/block/$1 n m
+	n=$(cat "$b/size" 2>/dev/null)
+	m=$(cat "$b/device/model" 2>/dev/null | sed 's/[[:space:]]*$//')
+	echo "$(node "$1") ($(( ${n:-0} / 2097152 )) GiB${m:+ $m})"
+}
+
+
+command -v udevadm >/dev/null 2>&1 && udevadm settle --timeout=60 >/dev/null 2>&1
+for b in "$S"/block/*; do
+    [ -e "$b" ] || continue
+    n=${b##*/}
+    eligible "$n" || continue
+    # Fail on a busy first disk rather than selecting another disk or
+    # dismantling a storage stack that may span other disks.
+    for part in "$b" "$b"/"$n"*; do
+        [ -d "$part" ] || continue
+        for holder in "$part"/holders/*; do
+            [ -e "$holder" ] || continue
+            say "first disk $(describe "$n") has an active storage holder; use manual installation"
+            exit 1
+        done
+    done
+    say "install disk: $(describe "$n"); only this disk may be partitioned"
+    node "$n"
+    exit 0
+done
+say 'no eligible fixed install disk found; no target selected'
+exit 1
