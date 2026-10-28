@@ -1,0 +1,55 @@
+name: Publish verified Ubuntu 24 fallback image
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-ubuntu24.yml]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ubuntu-24.04.4-fallback
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Download and verify the original Canonical ISO
+        shell: bash
+        run: |
+          set -euo pipefail
+          iso=ubuntu-24.04.4-live-server-amd64.iso
+          curl --fail --show-error --location --proto '=https' --proto-redir '=https' \
+            --connect-timeout 15 --speed-limit 1024 --speed-time 60 --retry 2 \
+            --output "$iso" "https://releases.ubuntu.com/24.04.4/$iso"
+          printf '%s  %s\n' e907d92eeec9df64163a7e454cbc8d7755e8ddc7ed42f99dbc80c40f1a138433 "$iso" | sha256sum --check -
+          test "$(stat -c %s "$iso")" = 3405469696
+          mkdir assets
+          split --bytes=1536M --numeric-suffixes=0 --suffix-length=2 "$iso" "assets/$iso.part"
+          sha256sum "$iso" > assets/SHA256SUMS
+          (cd assets && sha256sum "$iso".part*) >> assets/SHA256SUMS
+          printf '%s\n' \
+            'Original Canonical Ubuntu Server 24.04.4 amd64 ISO, verified against the pinned SHA256.' \
+            'The ISO is split into three ordered files to fit GitHub Releases asset limits.' \
+            'OneBoot concatenates part00, part01, part02 in RAM and verifies the entire ISO before mounting it.' \
+            'No installer credentials or modified OS image are included.' > release-notes.md
+      - name: Publish the immutable fallback assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag=ubuntu-24.04.4-oneboot-v1.3
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo 'This pinned fallback release already exists; refusing to replace its files.'
+            exit 1
+          fi
+          gh release create "$tag" assets/* --target "$GITHUB_SHA" \
+            --title 'Ubuntu 24.04.4 verified fallback assets' --notes-file release-notes.md \
+            --prerelease --latest=false
+
