@@ -1,21 +1,21 @@
 # OneBoot
 
-Boot media and verified installer download sources for OneBoot.
+OneBoot v1.3 is being rebuilt as a small standalone BIOS/UEFI boot ISO with optional Ubuntu autoinstall, adapted from the GPL-licensed [FluxBilling OS Installer](https://github.com/FluxBilling-app/FluxBilling-OS-Installer).
 
-## Ubuntu 24 recovery
+## Current v1.3 scope
 
-The [Ubuntu 24.04.4 mirror release](https://github.com/AlbertStrauss/OneBoot/releases/tag/ubuntu-24.04.4-oneboot-v1.3) is published. It contains three ordered parts of the original Canonical amd64 server ISO, plus SHA256SUMS. OneBoot streams the parts into one RAM file and requires the exact original size and SHA256 before mounting it.
+Enter NIC and static IPv4 settings, choose Ubuntu 22.04, 24.04 or 26.04, then select **Manual** or **Auto**. Auto asks for hostname and a visible password twice, checks agreement, and requires an explicit **Go** on a review screen.
 
-- Original ISO: `ubuntu-24.04.4-live-server-amd64.iso`
-- Bytes: `3405469696`
-- SHA256: `e907d92eeec9df64163a7e454cbc8d7755e8ddc7ed42f99dbc80c40f1a138433`
+Auto targets the first eligible fixed disk, with normal boot/root partitions. Other disks are outside its storage layout. The disk selector performs no global wipe or RAID teardown. A busy first disk stops the automatic path for operator review. Manual mode supplies no autoinstall profile.
 
-The complete public GitHub download has been reconstructed and verified against that checksum. The pinned mirrors and source order are in [the manifest](mirrors/ubuntu-24.04.4.json). The publishing workflow verifies Canonical's original file before uploading and refuses to replace an existing release.
+Credentials are carried in a private RAM file, not the kernel command line. Root and the `user` sudo account receive the confirmed password; this is shown before Go. Source attribution and the GPL license are retained in the project and boot media.
 
-## Operator control
+## Paired boot files
 
-The primary source remains the OneBoot VPS. A failure waits for the operator: retry VPS, correct the network/NIC, or press **F** to try alternatives. F permits GitHub Releases, then three official HTTPS mirrors, then their HTTP URLs. Every completed image must match the locally pinned size and SHA256; failed or incorrect downloads are discarded.
+The [Ubuntu boot-pair release](https://github.com/AlbertStrauss/OneBoot/releases/tag/ubuntu-live-boot-v1.3) contains unmodified kernel/initrd pairs extracted from the exact Canonical Ubuntu 22.04.5, 24.04.4 and 26.04 ISOs. The publishing workflow checks both the original ISO hash and the extracted file hashes before uploading.
 
-OneBoot v1.3's boot-media candidate includes a local Ubuntu 24 kernel/initrd reserve so that alternatives can also be selected when the primary boot files cannot be downloaded. BIOS/UEFI qualification is separate from the mirror publishing workflow. This phase covers Ubuntu 24 only and keeps installation interactive, with no automatic disk policy.
+Full Ubuntu images download from Canonical or official mirrors into RAM. The mirror selector accepts fixed release filenames and retains the exact requested version. The downloaded medium must match the boot initrd's UUID. Allow 8 GiB RAM or more on installation servers.
 
-Large installer files belong in GitHub Releases rather than Git history. No installer credentials or private keys belong in this repository.
+The boot-media candidate is still undergoing disposable-disk installation tests; published boot files alone do not establish that the whole ISO is qualified. Secure Boot and physical-hardware qualification are separate.
+
+The older `ubuntu-24.04.4-oneboot-v1.3` split-image release belongs to an abandoned recovery prototype and is not the current autoinstall download path. No keys or installer credentials belong in this repository.
