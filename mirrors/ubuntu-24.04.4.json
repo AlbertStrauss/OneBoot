@@ -1,0 +1,15 @@
+{
+  "version": "24.04.4",
+  "filename": "ubuntu-24.04.4-live-server-amd64.iso",
+  "size": 3405469696,
+  "sha256": "e907d92eeec9df64163a7e454cbc8d7755e8ddc7ed42f99dbc80c40f1a138433",
+  "primary": "https://93.114.194.66/oneboot/ubuntu/ubuntu-24.04.4-live-server-amd64.iso",
+  "github_release": "https://github.com/AlbertStrauss/OneBoot/releases/download/ubuntu-24.04.4-oneboot-v1.3",
+  "github_parts": ["ubuntu-24.04.4-live-server-amd64.iso.part00", "ubuntu-24.04.4-live-server-amd64.iso.part01", "ubuntu-24.04.4-live-server-amd64.iso.part02"],
+  "mirrors": [
+    "https://releases.ubuntu.com/24.04.4/ubuntu-24.04.4-live-server-amd64.iso",
+    "https://ftp.halifax.rwth-aachen.de/ubuntu-releases/24.04.4/ubuntu-24.04.4-live-server-amd64.iso",
+    "https://ubuntu.mirrors.ovh.net/ubuntu-releases/24.04.4/ubuntu-24.04.4-live-server-amd64.iso"
+  ]
+}
+
