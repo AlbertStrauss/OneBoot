@@ -1,0 +1,61 @@
+name: Publish paired Ubuntu boot files for OneBoot v1.3
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-ubuntu-live-boot.yml]
+permissions:
+  contents: write
+concurrency:
+  group: ubuntu-live-boot-v1.3
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Extract exact Canonical kernel and initrd pairs
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xorriso
+          mkdir assets
+          while read -r version iso_hash kernel_hash initrd_hash; do
+            iso="ubuntu-$version-live-server-amd64.iso"
+            curl --fail --show-error --location --proto '=https' --proto-redir '=https' \
+              --connect-timeout 15 --speed-limit 1024 --speed-time 60 --retry 2 \
+              -o "$iso" "https://releases.ubuntu.com/$version/$iso"
+            printf '%s  %s\n' "$iso_hash" "$iso" | sha256sum --check -
+            xorriso -osirrox on -indev "$iso" \
+              -extract /casper/vmlinuz "assets/ubuntu-$version-vmlinuz" \
+              -extract /casper/initrd "assets/ubuntu-$version-initrd"
+            printf '%s  %s\n' "$kernel_hash" "assets/ubuntu-$version-vmlinuz" | sha256sum --check -
+            printf '%s  %s\n' "$initrd_hash" "assets/ubuntu-$version-initrd" | sha256sum --check -
+            rm -- "$iso"
+          done <<'PAIRS'
+          22.04.5 9bc6028870aef3f74f4e16b900008179e78b130e6b0b9a140635434a46aa98b0 6f8b2d5065ad56cb3c1652e88752817ccedf60ec9472be561972434b00ed27f5 1b8a42e409e3ea968d3d819690c80fae0dcb12ac4503d752241af97605b5234e
+          24.04.4 e907d92eeec9df64163a7e454cbc8d7755e8ddc7ed42f99dbc80c40f1a138433 528d909745819a1464848a2c4d91c609db4f54b33ccae7069aad4178fb34606f b91245030e13a1dc835205b77561323b26bea1cbbf4f5ed43aa0cfff08d4e353
+          26.04 dec49008a71f6098d0bcfc822021f4d042d5f2db279e4d75bdd981304f1ca5d9 6f11cd68fc0d181bb4f9a72e2d0ec6a1c2a69a59f7b9bd6bf9538630d1102456 4f460425d2be252f95e35608128043ed2f2bcd5ce8c4d151d074a312a25f92c1
+          PAIRS
+          (cd assets && sha256sum ubuntu-*) > assets/SHA256SUMS
+          printf '%s\n' \
+            'Unmodified kernel/initrd extracted from the exact original Canonical ISOs.' \
+            'Both the ISO and its extracted boot files are checked against pinned SHA256 values.' \
+            'Autoinstall profiles are supplied locally by OneBoot, outside these upstream files.' > release-notes.md
+      - name: Publish verified pairs without replacing an existing tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag=ubuntu-live-boot-v1.3
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo 'Refusing to replace a previously published boot pair.'
+            exit 1
+          fi
+          gh release create "$tag" assets/* --target "$GITHUB_SHA" \
+            --title 'Paired Ubuntu 22/24/26 boot files for OneBoot v1.3' \
+            --notes-file release-notes.md --prerelease --latest=false
+
