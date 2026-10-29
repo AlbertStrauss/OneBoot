@@ -1,6 +1,20 @@
-# OneBoot v1.3 â€” Ubuntu Manual / Auto
+# OneBoot v1.3 — Ubuntu Manual / Auto
 
-Status: implementation and full installation qualification in progress.
+Status: candidate delivered on 2026-10-29 with the BIOS26 startup limitation below.
+ISO SHA256: `368bd7603dd7ba5e0182c51b6b1518ec5892dba57905104049b100343ed80473`.
+
+Five clean full Auto installations passed: Ubuntu22 and Ubuntu24 in BIOS/UEFI,
+and Ubuntu26 in UEFI. Each included a cold boot without the ISO, chosen root/user
+password login, hostname/static routes and unchanged second-disk data.
+The original Ubuntu26 BIOS install reached its last late command before the
+observer expired. Its preserved target later cold-booted successfully: chosen
+root/user passwords, hostname/static routes and APT configuration passed.
+Full installation completion was not observed. A subsequent emulated BIOS26
+startup failed at netplan apply; an operator service restart did not produce a
+completed install. Full/unattended Ubuntu26 BIOS installation remains unqualified.
+It needs validation on the actual server hardware. All physical-controller/iLO
+qualification remains separate from these disposable VM checks.
+
 Do not replace the production v1.0 ISO or its assets from this candidate.
 
 ## Operator flow
@@ -48,6 +62,12 @@ the exact ISO filename; it is never silently replaced with a newer point
 release. The initrd's own ISO UUID check is enabled for origin and mirrors.
 This is compose matching; it is not a runtime full-ISO SHA256 check.
 
+Known auxiliary-console limit: the serial progress watcher can follow a short
+mirror-probe wget process and announce a 0 MB completion prematurely. The main
+video console continues showing the real wget progress, and the mount/install
+path still waits for the real download. This status-only issue is retained in
+the tested candidate; it is not evidence that the ISO finished downloading.
+
 The adapted Flux downloader can resume or use parallel transfers when useful.
 Existing OneBoot transfer errors remain visible with resource/network details.
 New Ubuntu paths use public GitHub/Ubuntu sources and do not require a VPS
@@ -75,3 +95,18 @@ for full installs, cold boots, SSH logins and secondary-disk integrity.
 Current test evidence and qualification limits are recorded in
 PROJECT_CONTEXT.md and TESTING.md. Physical server, storage-controller and
 Secure Boot qualification is separate from the disposable VM matrix.
+
+## BIOS26 qualification condition
+
+UEFI used WHPX; BIOS used TCG. Ubuntu26 BIOS required instruction-counted
+TCG time (HPET on) to pass an early timer panic. Later its initial network apply
+returned `Call failed: Connection timed out`; media checks passed and networking
+became available. Slow emulation is suspected, not established as the physical
+hardware cause. No noapic or timing workaround was added to the product ISO.
+The original failure, service-restart attempt and separate late-disk cold boot
+are included in evidence. No failed/partial run is counted as a full install pass.
+
+Reproduce the Windows test clock with ONEBOOT_TEST_TCG_ICOUNT=auto. A recorded
+startup-assistance.json always prevents classifying the case as a clean unattended
+startup, even when the later install/cold-boot checks pass. Earlier partial or
+interrupted attempts are not completed installation passes.

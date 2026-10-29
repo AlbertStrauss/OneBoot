@@ -5,4 +5,5 @@
 *.h text eol=lf
 *.c text eol=lf
 autoinstall/* text eol=lf
+initramfs/** text eol=lf
 *.png binary

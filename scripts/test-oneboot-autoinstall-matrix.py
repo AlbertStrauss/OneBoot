@@ -27,5 +27,9 @@ with (root/'matrix.log').open('a',encoding='utf-8') as log:
     assert all(r['pass'] and r['iso_sha256']==expected and r['second_disk_unchanged']
                and r['installed']['root_password_login'] and r['installed']['user_password_login']
                and r['installed']['static_network'] for r in records)
-    (root/'full-install-matrix.json').write_text(json.dumps({'iso_sha256':expected,'pass':True,'cases':records},indent=2))
-    print('PASS: six complete installations, cold boots, root/user logins, static networking and unchanged secondary disks.',flush=True)
+    assisted=[r['firmware']+'-ubuntu'+r['version']+'-auto' for r in records
+              if r.get('startup_assistance') or r.get('unattended_startup_pass') is False]
+    (root/'full-install-matrix.json').write_text(json.dumps({'iso_sha256':expected,'pass':True,
+      'unattended_startup_pass':not assisted,'assisted_cases':assisted,'cases':records},indent=2))
+    print('FUNCTIONAL PASS: six complete installations and cold boots; '+str(6-len(assisted))+
+          ' clean unattended startups, '+str(len(assisted))+' assisted startups.',flush=True)

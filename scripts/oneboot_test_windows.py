@@ -9,6 +9,7 @@ import hashlib
 import json
 import logging
 import msvcrt
+import os
 from pathlib import Path
 import re
 import runpy
@@ -66,17 +67,27 @@ class WindowsVM:
     def __init__(self,root,case,firmware,memory,iso=None,disks=False,acceleration=None,nic='virtio-net-pci'):
         self.root=root;self.case=case;self.firmware=firmware;self.memory=memory;self.iso=iso;self.disks=disks
         self.acceleration=acceleration;self.nic=nic
+        self.cpu='max'
+        self.machine='q35' if firmware=='uefi' else os.environ.get('ONEBOOT_TEST_BIOS_MACHINE','pc')
+        assert self.machine in ('pc','q35')
+        self.hpet='on' if firmware=='uefi' else os.environ.get('ONEBOOT_TEST_BIOS_HPET','on')
+        assert self.hpet in ('on','off')
+        self.icount=os.environ.get('ONEBOOT_TEST_TCG_ICOUNT','') if firmware=='bios' else ''
+        assert self.icount in ('','auto')
+        self.tcg_thread='single' if self.icount else os.environ.get('ONEBOOT_TEST_TCG_THREAD','multi')
+        assert self.tcg_thread in ('single','multi')
     def __enter__(self):
         self.port=port();self.qmp_port=port();self.serial_port=port()
         assert len({self.port,self.qmp_port,self.serial_port})==3
         cmd=[str(QEMU/'qemu-system-x86_64.exe'),'-L',str(QEMU/'share'),
-             '-machine','q35' if self.firmware=='uefi' else 'pc','-accel',
-             self.acceleration or ('whpx,kernel-irqchip=off' if self.firmware=='uefi' else 'tcg,thread=multi'),
-             '-cpu','max','-smp','2','-m',str(self.memory),'-boot','order=d' if self.iso else 'order=c',
+             '-machine',self.machine+',hpet='+self.hpet,'-accel',
+             self.acceleration or ('whpx,kernel-irqchip=off' if self.firmware=='uefi' else 'tcg,thread='+self.tcg_thread),
+             '-cpu',self.cpu,'-smp','2','-m',str(self.memory),'-boot','order=d' if self.iso else 'order=c',
              '-netdev',f'user,id=n,hostfwd=tcp:127.0.0.1:{self.port}-:22',
              '-device',self.nic+',netdev=n,mac=52:54:00:12:34:56','-device','virtio-rng-pci',
              '-display','none','-chardev',f'socket,id=ser,host=127.0.0.1,port={self.serial_port},server=on,wait=off',
              '-serial','chardev:ser','-qmp',f'tcp:127.0.0.1:{self.qmp_port},server=on,wait=off','-no-reboot']
+        if self.icount:cmd+=['-icount','shift='+self.icount+',align=off,sleep=on']
         if self.iso:cmd+=['-cdrom',str(self.iso)]
         if self.firmware=='uefi':
             variables=self.case/'OVMF_VARS.fd'
@@ -100,7 +111,11 @@ class WindowsVM:
         self.serial_log=(self.case/('installer.serial' if self.iso else 'firstboot.serial')).open('wb',buffering=0)
         self.closing=False
         self.reader=threading.Thread(target=self.read_serial,daemon=True);self.reader.start()
-        (self.case/'control.json').write_text(json.dumps({'pid':self.p.pid,'qmp_port':self.qmp_port,'serial_port':self.serial_port,'ssh_port':self.port}))
+        metadata={'pid':self.p.pid,'qmp_port':self.qmp_port,'serial_port':self.serial_port,'ssh_port':self.port,
+            'cpu':self.cpu,'memory_mb':self.memory,'firmware':self.firmware,'network_model':self.nic,'machine':self.machine,
+            'hpet':self.hpet,'icount':self.icount,'qemu_command':cmd}
+        (self.case/'control.json').write_text(json.dumps(metadata))
+        (self.case/('control-install.json' if self.iso else 'control-firstboot.json')).write_text(json.dumps(metadata))
         return self
     def read_serial(self):
         while not self.closing:
@@ -114,6 +129,11 @@ class WindowsVM:
         request=self.case/'diagnostic-request.json'
         if not request.exists():return
         data=json.loads(request.read_text());request.unlink()
+        if 'extend_seconds' in data:
+            seconds=int(data['extend_seconds']);assert 0<seconds<=3600
+            self.observation_extension=seconds
+            with (self.case/'observation-extensions.jsonl').open('a') as log:
+                log.write(json.dumps({'seconds':seconds,'time':time.time()})+'\n')
         if 'serial' in data:self.serial.sendall(data['serial'].encode())
         for keys in data.get('keys',[]):qmp(self.c,'human-monitor-command',{'command-line':'sendkey '+keys})
         if data.get('screenshot'):qmp(self.c,'screendump',{'filename':str(self.case/Path(data['screenshot']).name)})
@@ -148,6 +168,8 @@ def ssh_check(vm,password,hostname,version):
     root.close();lines=output.splitlines()
     assert lines[0]==hostname and lines[1].startswith(version+'.04') and lines[2]=='0',output
     assert '10.0.2.15/24' in output and 'default via 10.0.2.2' in output and '/dev/vda' in output,output
+    assert any(line.startswith('default via 10.0.2.2 ') and 'proto static' in line
+               for line in lines),output
     assert re.search(r'(^deb .* \S+-security\s|^Suites:.*\S+-security\b)',output,re.M),output
     user=connect('user');_,stdout,stderr=user.exec_command('id -un; id -Gn',timeout=20)
     account=stdout.read().decode();error=stderr.read().decode()

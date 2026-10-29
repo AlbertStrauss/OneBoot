@@ -186,21 +186,27 @@ def main():
             if args.mode=='auto':type_text(vm.c,'g')
             elif args.mode=='manual':type_text(vm.c,'m')
             if full:
-                deadline=time.monotonic()+(3600 if os.name=='nt' and args.firmware=='bios' else 1800);checkpoint=0
+                deadline=time.monotonic()+(5400 if os.name=='nt' and args.firmware=='bios' else 1800);checkpoint=0
                 start=time.monotonic()
                 while vm.p.poll() is None and time.monotonic()<deadline:
                     time.sleep(15)
                     if vm.p.poll() is not None:break
                     if hasattr(vm,'handle_requests'):vm.handle_requests()
+                    deadline+=getattr(vm,'observation_extension',0)
+                    vm.observation_extension=0
                     screen(vm.c,case/f'progress-{checkpoint:03}.ppm');checkpoint+=1
                     print('PROGRESS '+name+' '+str(checkpoint),flush=True)
                     if (case/'stop-observation').exists():break
                     serial=(case/'installer.serial').read_text(errors='replace')
+                    if 'Kernel panic - not syncing:' in serial:raise RuntimeError(serial[-3500:])
                     if 'INSTALL FAILED' in serial:raise RuntimeError(serial[-2500:])
                     if 'An error occurred. Press enter to start a shell' in serial:raise RuntimeError(serial[-3500:])
                     if time.monotonic()-start>300 and 'Linux version' not in serial:
                         raise RuntimeError('Linux did not start; inspect the final iPXE transfer screen')
-                if args.mode=='auto':assert vm.p.poll() is not None,'Installer did not reboot within observation window'
+                if args.mode=='auto':
+                    assert vm.p.poll() is not None,'Installer did not reboot within observation window'
+                    assert vm.p.returncode==0,'QEMU exited abnormally: '+str(vm.p.returncode)
+                    record['installer_exit_code']=vm.p.returncode
                 else:screen(vm.c,case/'manual-installer.ppm')
             record['menu_capture_completed']=True
         if args.mode=='auto':
@@ -211,8 +217,17 @@ def main():
             after=sparse_signature(case/'other.raw');record['other_disk_after']=after
             assert before==after,'Secondary disk changed'
             record['second_disk_unchanged']=True
+            if args.mode=='manual':
+                extents=json.loads(subprocess.check_output([image_tool,'map','--output=json',str(case/'target.qcow2')],text=True))
+                assert all(not extent.get('data') for extent in extents),'Manual installer wrote guest disk sectors'
+                record['manual_target_unwritten']=True
             (case/'target.qcow2').unlink();(case/'other.raw').unlink()
         record['pass']=True
+        assistance=case/'startup-assistance.json'
+        if assistance.exists():
+            record['startup_assistance']=json.loads(assistance.read_text())
+            record['unattended_startup_pass']=False
+        elif args.mode=='auto':record['unattended_startup_pass']=True
     except Exception as error:
         record['error']=str(error)
         raise

@@ -11,10 +11,31 @@ The operator's password is used for root and the sudo account `user`, including
 SSH. Credentials travel in a private RAM cpio file, outside kernel arguments
 and the archived autoinstall YAML. The installer does not have a default password.
 
-**Qualification in progress.** The current candidate passed helper/static checks,
-the full Ubuntu24 UEFI install/cold-boot/login/two-disk test and existing-menu /
-controlled-download-error checks. The remaining full installation matrix is
-still running. Do not treat this as a hardware-qualified production release.
+**Candidate delivered with a BIOS26 startup limitation.**
+
+Five clean full Auto installations passed: Ubuntu22 and Ubuntu24 in BIOS/UEFI,
+and Ubuntu26 in UEFI. Each included a cold boot without the ISO, chosen root/user
+password login, hostname/static routes and unchanged second-disk data.
+The original Ubuntu26 BIOS install reached its last late command before the
+observer expired. Its preserved target later cold-booted successfully: chosen
+root/user passwords, hostname/static routes and APT configuration passed.
+Full installation completion was not observed. A subsequent emulated BIOS26
+startup failed at netplan apply; an operator service restart did not produce a
+completed install. Full/unattended Ubuntu26 BIOS installation remains unqualified.
+It needs validation on the actual server hardware. All physical-controller/iLO
+qualification remains separate from these disposable VM checks.
+
+UEFI used WHPX; BIOS used TCG. Ubuntu26 BIOS required instruction-counted
+TCG time (HPET on) to pass an early timer panic. Later its initial network apply
+returned `Call failed: Connection timed out`; media checks passed and networking
+became available. Slow emulation is suspected, not established as the physical
+hardware cause. No noapic or timing workaround was added to the product ISO.
+The original failure, service-restart attempt and separate late-disk cold boot
+are included in evidence. No failed/partial run is counted as a full install pass.
+
+Thirteen helper regression tests, actual ISO/static checks, visible invalid-password
+UI checks, native Manual Ubuntu24 without disk writes, and existing-menu/download-error
+compatibility checks passed. Production OneBoot v1.0 and its service policy remain unchanged.
 
 ## Boot resources
 
