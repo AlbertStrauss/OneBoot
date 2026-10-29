@@ -1,5 +1,5 @@
 {
-  "boot_release": "https://github.com/AlbertStrauss/OneBoot/releases/download/ubuntu-legacy-boot-v1.4-r3",
+  "boot_release": "https://github.com/AlbertStrauss/OneBoot/releases/download/ubuntu-legacy-boot-v1.4-r4",
   "backend": "debian-installer preseed, auto-only initrd with private profile prepended in RAM",
   "versions": [
     {

@@ -68,7 +68,9 @@ late)
     mv "$ssh.oneboot" "$ssh"; chmod 600 "$ssh"
     mkdir -p "$T/run/sshd"; chmod 755 "$T/run/sshd"
     chroot "$T" /usr/sbin/sshd -t || stop 'SSH configuration is invalid'
-    chroot "$T" systemctl enable ssh || stop 'enabling SSH failed'
+    # --root=/ forces offline unit-file operations inside the target chroot.
+    # Focal otherwise tries the installer's absent system bus for native units.
+    chroot "$T" systemctl --root=/ enable ssh || stop 'enabling SSH failed'
     ip=$(arg netcfg/get_ipaddress); mask=$(arg netcfg/get_netmask)
     prefix=$(arg oneboot.prefix); gateway=$(arg netcfg/get_gateway)
     dns=$(arg netcfg/get_nameservers); mac=$(arg netcfg/choose_interface)
@@ -103,7 +105,7 @@ EOF
     mkdir -p "$T/etc/network"
     printf 'auto lo\niface lo inet loopback\n' > "$T/etc/network/interfaces"
     chroot "$T" netplan generate || stop 'installed static network is invalid'
-    chroot "$T" systemctl enable systemd-networkd || stop 'enabling networkd failed'
+    chroot "$T" systemctl --root=/ enable systemd-networkd || stop 'enabling networkd failed'
     suite=$(sed -n 's/^VERSION_CODENAME=//p' "$T/etc/os-release" | tr -d '"')
     case "$suite" in bionic|focal) : ;; *) stop 'unexpected installed Ubuntu suite' ;; esac
     if ! grep -Eq "^deb .* ${suite}-security[[:space:]]" "$T/etc/apt/sources.list"; then

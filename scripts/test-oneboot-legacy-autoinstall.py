@@ -64,4 +64,10 @@ class LegacyTests(unittest.TestCase):
     def test_password_control_bytes_are_rejected(self):
         self.profile.write_text('HOSTNAME=valid\nPASSWORD_HEX=410a42\n')
         self.assertNotEqual(self.run_hook('late').returncode,0);self.assertFalse(self.sink.exists())
+    def test_service_enable_is_offline_without_installer_system_bus(self):
+        self.stub('chroot','printf "%s\\n" "$*" >> "$ONEBOOT_CALLS"; case "$2" in /usr/sbin/chpasswd) cat > "$ONEBOOT_SINK" ;; systemctl) [ "$3" = --root=/ ] || exit 84 ;; esac')
+        r=self.run_hook('late');self.assertEqual(r.returncode,0,r.stderr)
+        calls=self.calls.read_text()
+        self.assertIn('systemctl --root=/ enable ssh',calls)
+        self.assertIn('systemctl --root=/ enable systemd-networkd',calls)
 if __name__=='__main__':unittest.main()
