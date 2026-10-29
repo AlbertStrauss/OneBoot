@@ -1,0 +1,116 @@
+#!/bin/sh
+# OneBoot v1.4 private-profile hooks for Ubuntu 18/20 d-i. GPL-2.0-or-later.
+set -eu
+P=${oneboot_di_profile:-/oneboot-profile}
+C=${oneboot_di_cmdline:-/proc/cmdline}
+T=${oneboot_di_target:-/target}
+log() { logger -t OneBoot "$*" 2>/dev/null || :; printf 'OneBoot: %s\n' "$*" >&2; }
+stop() {
+    log "STOP: $*. No automatic disk operation can continue."
+    printf '\nOneBoot STOP: %s\nSee /var/log/syslog; use Manual after reboot.\n' "$*" > /dev/console 2>/dev/null || :
+    [ "${oneboot_di_test:-0}" != 1 ] || exit 1
+    # partman vintages may ignore an early_command exit status. Keep it blocked.
+    while :; do sleep 60; done
+}
+arg() {
+    for w in $(cat "$C"); do case "$w" in "$1"=*) printf '%s\n' "${w#*=}"; return ;; esac; done
+}
+profile() {
+    [ "$(arg oneboot.autoinstall)" = 1 ] || stop 'automatic authorization is missing'
+    H=$(sed -n 's/^HOSTNAME=//p' "$P" 2>/dev/null) || stop 'private profile missing'
+    PH=$(sed -n 's/^PASSWORD_HEX=//p' "$P" 2>/dev/null)
+    case "$H" in ''|*[!a-zA-Z0-9.-]*|[-.]*|*[-.]) stop 'invalid hostname' ;; esac
+    case "$PH" in ''|*[!0-9a-f]*) stop 'invalid password profile' ;; esac
+    [ "${#PH}" -le 256 ] && [ $((${#PH}%2)) -eq 0 ] || stop 'invalid password length'
+}
+profile
+case ${1:-} in
+early)
+    chmod 600 "$P"
+    debconf-set netcfg/get_hostname "$H"
+    debconf-set netcfg/hostname "$H"
+    log 'private automatic profile loaded; passwords are omitted from logs'
+    ;;
+disk)
+    if [ -s /oneboot-virtio_blk.ko ]; then insmod /oneboot-virtio_blk.ko 2>/dev/null || :; fi
+    udevadm settle --timeout=60 2>/dev/null || :
+    disk=$(sh "${oneboot_di_disks:-/oneboot-disk}") || stop 'first fixed disk is missing or busy'
+    [ -b "$disk" ] || [ "${oneboot_di_test:-0}" = 1 ] || stop 'selected disk is not a block device'
+    # Refuse existing storage stacks instead of dismantling a VG/array across disks.
+    for n in "$disk" "${disk}"[0-9]* "${disk}"p[0-9]*; do
+        [ -b "$n" ] || continue
+        kind=$(blkid -o value -s TYPE "$n" 2>/dev/null || :)
+        case "$kind" in LVM2_member|linux_raid_member|crypto_LUKS)
+            stop 'first disk contains LVM, RAID or encryption; choose Manual' ;;
+        esac
+    done
+    debconf-set partman-auto/disk "$disk"
+    debconf-set grub-installer/bootdev "$disk"
+    log "automatic target is $disk; other disks are outside the layout"
+    ;;
+late)
+    [ -d "$T/etc/ssh" ] || stop 'OpenSSH was not installed'
+    # Decode without eval, external password arguments or a plaintext answer file.
+    password=
+    while [ -n "$PH" ]; do
+        pair=${PH%"${PH#??}"}; PH=${PH#??}; value=$((0x$pair))
+        [ "$value" -ge 32 ] && [ "$value" -ne 127 ] || stop 'invalid password byte'
+        octal=$(printf '%03o' "$value")
+        password=$password$(printf "\\$octal")
+    done
+    [ -n "$password" ] || stop 'empty password'
+    printf 'root:%s\nuser:%s\n' "$password" "$password" | chroot "$T" /usr/sbin/chpasswd || stop 'setting passwords failed'
+    unset password PH
+    # Ubuntu 18 does not include sshd_config.d by default. Prepend authoritative
+    # directives to the main file, keeping Match blocks and comments intact.
+    ssh=$T/etc/ssh/sshd_config
+    { printf 'PermitRootLogin yes\nPasswordAuthentication yes\n'; cat "$ssh"; } > "$ssh.oneboot"
+    mv "$ssh.oneboot" "$ssh"; chmod 600 "$ssh"
+    mkdir -p "$T/run/sshd"; chmod 755 "$T/run/sshd"
+    chroot "$T" /usr/sbin/sshd -t || stop 'SSH configuration is invalid'
+    chroot "$T" systemctl enable ssh || stop 'enabling SSH failed'
+    ip=$(arg netcfg/get_ipaddress); mask=$(arg netcfg/get_netmask)
+    prefix=$(arg oneboot.prefix); gateway=$(arg netcfg/get_gateway)
+    dns=$(arg netcfg/get_nameservers); mac=$(arg netcfg/choose_interface)
+    case "$ip$gateway$dns$mask" in ''|*[!0-9.]*) stop 'invalid static IPv4 values' ;; esac
+    case "$prefix" in ''|*[!0-9]*) stop 'invalid IPv4 prefix' ;; esac
+    [ "$prefix" -ge 1 ] && [ "$prefix" -le 32 ] || stop 'invalid IPv4 prefix range'
+    case "$mac" in ''|*[!0-9a-fA-F:]*) stop 'invalid interface MAC' ;; esac
+    mkdir -p "$T/etc/netplan"
+    for old in "$T/etc/netplan"/*.yaml; do
+        [ ! -f "$old" ] || mv "$old" "$old.oneboot-disabled"
+    done
+    cat > "$T/etc/netplan/01-oneboot.yaml" <<EOF
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    onebootnic:
+      match:
+        macaddress: "$mac"
+      dhcp4: false
+      dhcp6: false
+      addresses: [$ip/$prefix]
+      nameservers:
+        addresses: [$dns]
+      routes:
+        - to: 0.0.0.0/0
+          via: $gateway
+          on-link: true
+EOF
+    chmod 600 "$T/etc/netplan/01-oneboot.yaml"
+    # d-i writes an ifupdown stanza; netplan now owns the configured interface.
+    mkdir -p "$T/etc/network"
+    printf 'auto lo\niface lo inet loopback\n' > "$T/etc/network/interfaces"
+    chroot "$T" netplan generate || stop 'installed static network is invalid'
+    chroot "$T" systemctl enable systemd-networkd || stop 'enabling networkd failed'
+    suite=$(sed -n 's/^VERSION_CODENAME=//p' "$T/etc/os-release" | tr -d '"')
+    case "$suite" in bionic|focal) : ;; *) stop 'unexpected installed Ubuntu suite' ;; esac
+    if ! grep -Eq "^deb .* ${suite}-security[[:space:]]" "$T/etc/apt/sources.list"; then
+        printf 'deb http://security.ubuntu.com/ubuntu %s-security main restricted universe multiverse\n' "$suite" >> "$T/etc/apt/sources.list"
+    fi
+    rm -f "$P"
+    log 'installation configured: static network, root/user passwords and SSH; profile removed'
+    ;;
+*) stop 'unknown legacy installer hook' ;;
+esac

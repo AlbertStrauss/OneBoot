@@ -1,0 +1,25 @@
+{
+  "boot_release": "https://github.com/AlbertStrauss/OneBoot/releases/download/ubuntu-legacy-boot-v1.4-r1",
+  "backend": "debian-installer preseed, auto-only initrd with private profile prepended in RAM",
+  "versions": [
+    {
+      "version": "18.04",
+      "suite": "bionic",
+      "origin": "https://archive.ubuntu.com/ubuntu/dists/bionic-updates/main/installer-amd64/current/images/netboot/ubuntu-installer/amd64",
+      "kernel_sha256": "cd554d9e56fde7b6bfbad56f3531f60cb079c9508128bcad019bd33ee4cb939f",
+      "initrd_sha256": "137ed4d7e095fefd9398e18411e0adb8099972e70ed63df622ca81919292519d"
+    },
+    {
+      "version": "20.04",
+      "suite": "focal",
+      "origin": "https://archive.ubuntu.com/ubuntu/dists/focal-updates/main/installer-amd64/current/legacy-images/netboot/ubuntu-installer/amd64",
+      "kernel_sha256": "cd6e8d6114d11d668aaba86e5e16c24762723d37fa9fd5b309dc1b8a0c2685ef",
+      "initrd_sha256": "b564dd19ab43aadefe901e1f971ef34c60371f1abeb316cc623adf55976704b3",
+      "module_kernel": "5.4.0-144-generic",
+      "module_sha256": "b83a54800a11365b847578671d22b9750265e066a47acc00e04a45849e22bf3b",
+      "module_iso_url": "https://releases.ubuntu.com/20.04/ubuntu-20.04.6-live-server-amd64.iso",
+      "module_iso_sha256": "b8f31413336b9393ad5d8ef0282717b2ab19f007df2e9ed5196c13d8f9153c8b",
+      "module_deb_path": "/pool/main/l/linux/linux-modules-5.4.0-144-generic_5.4.0-144.161_amd64.deb"
+    }
+  ]
+}

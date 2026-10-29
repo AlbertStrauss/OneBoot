@@ -1,0 +1,46 @@
+name: Publish pinned Ubuntu 18/20 automatic boot files for OneBoot v1.4
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-ubuntu-legacy-boot.yml]
+permissions:
+  contents: write
+concurrency:
+  group: ubuntu-legacy-boot-v1.4
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Build from pinned original Canonical inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xorriso
+          python3 scripts/prepare-oneboot-v1.4-legacy-assets.py --input-root inputs --output boot-assets --download
+          (cd boot-assets && sha256sum --check SHA256SUMS)
+          printf '%s\n' \
+            'Ubuntu 18/20 classic automatic installer boot files for OneBoot v1.4.' \
+            'Original Canonical kernel/initrd are verified against pinned SHA256 values.' \
+            'The auto-only initrd prepends GPL OneBoot preseed/hooks and first-disk selector.' \
+            'Ubuntu 20 includes its exact Canonical virtio block module, extracted from the verified original ISO.' \
+            'No personal credential or per-server profile exists in these public assets.' > release-notes.md
+      - name: Publish an immutable boot resource revision
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag=$(python3 -c 'import json;print(json.load(open("config/ubuntu-legacy-autoinstall.json"))["boot_release"].rsplit("/",1)[-1])')
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo 'Refusing to replace an existing boot resource revision.'
+            exit 1
+          fi
+          gh release create "$tag" boot-assets/* --target "$GITHUB_SHA" \
+            --title 'Ubuntu 18/20 automatic boot resources for OneBoot v1.4' \
+            --notes-file release-notes.md --prerelease --latest=false
