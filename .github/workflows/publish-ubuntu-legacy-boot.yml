@@ -26,7 +26,7 @@ jobs:
           printf '%s\n' \
             'Ubuntu 18/20 classic automatic installer boot files for OneBoot v1.4.' \
             'Original Canonical kernel/initrd are verified against pinned SHA256 values.' \
-            'The auto-only initrd prepends GPL OneBoot preseed/hooks and first-disk selector.' \
+            'The auto-only initrd prepends GPL OneBoot preseed/hooks and first-disk selector; logins stay locked until the private late hook.' \
             'Ubuntu 20 includes its exact Canonical virtio block module from a pinned official package; its ABI must match the vendor initrd.' \
             'No personal credential or per-server profile exists in these public assets.' > release-notes.md
       - name: Publish an immutable boot resource revision
