@@ -1,0 +1,1140 @@
+#!ipxe
+
+set oneboot_version 1.4
+set base_url @@BASE_URL@@
+obpayload || goto shell
+set console_mode text
+set systemrescue_version 13.02
+set memtest_version 8.10
+set winpe_version adk-10.1.26100.2454
+set minitool_version 12.3.0
+
+:configure_console
+console --x 1024 --y 768 --left 64 --right 64 --top 224 --bottom 64 --picture oneboot-background-v1.0.png || goto text_console
+set console_mode branded
+goto configure_theme
+
+:text_console
+console ||
+
+:configure_theme
+colour --basic 0 --rgb 0x000000 0 ||
+colour --basic 0 --rgb 0x000000 4 ||
+colour --basic 7 --rgb 0xffffff 3 ||
+colour --basic 7 --rgb 0xffffff 6 ||
+colour --basic 7 --rgb 0xffffff 7 ||
+cpair --foreground 7 --background 0 0 ||
+cpair --foreground 7 --background 0 1 ||
+cpair --foreground 4 --background 6 2 ||
+cpair --foreground 6 --background 0 3 ||
+cpair --foreground 4 --background 3 4 ||
+cpair --foreground 3 --background 0 5 ||
+cpair --foreground 6 --background 0 6 ||
+
+:welcome
+iseq ${console_mode} branded && goto nic_menu ||
+echo
+echo ================================================================
+echo                         OneBoot v${oneboot_version}
+echo          Interactive server installer and recovery toolkit
+echo ================================================================
+echo
+echo Only detected NICs are listed. No disks are modified by this menu.
+echo
+sleep 1
+goto nic_menu
+
+:nic_menu
+isset ${net0/mac} || goto no_nic
+goto label_net0
+
+:label_net0
+set label_chip ${net0/chip}
+set label_return label_net0_done
+goto friendly_chip
+:label_net0_done
+set nic0_name ${friendly_name}
+isset ${net1/mac} || goto render_nic_menu
+
+:label_net1
+set label_chip ${net1/chip}
+set label_return label_net1_done
+goto friendly_chip
+:label_net1_done
+set nic1_name ${friendly_name}
+isset ${net2/mac} || goto render_nic_menu
+
+:label_net2
+set label_chip ${net2/chip}
+set label_return label_net2_done
+goto friendly_chip
+:label_net2_done
+set nic2_name ${friendly_name}
+isset ${net3/mac} || goto render_nic_menu
+
+:label_net3
+set label_chip ${net3/chip}
+set label_return label_net3_done
+goto friendly_chip
+:label_net3_done
+set nic3_name ${friendly_name}
+isset ${net4/mac} || goto render_nic_menu
+
+:label_net4
+set label_chip ${net4/chip}
+set label_return label_net4_done
+goto friendly_chip
+:label_net4_done
+set nic4_name ${friendly_name}
+isset ${net5/mac} || goto render_nic_menu
+
+:label_net5
+set label_chip ${net5/chip}
+set label_return label_net5_done
+goto friendly_chip
+:label_net5_done
+set nic5_name ${friendly_name}
+isset ${net6/mac} || goto render_nic_menu
+
+:label_net6
+set label_chip ${net6/chip}
+set label_return label_net6_done
+goto friendly_chip
+:label_net6_done
+set nic6_name ${friendly_name}
+isset ${net7/mac} || goto render_nic_menu
+
+:label_net7
+set label_chip ${net7/chip}
+set label_return label_net7_done
+goto friendly_chip
+:label_net7_done
+set nic7_name ${friendly_name}
+isset ${net8/mac} || goto render_nic_menu
+
+:label_net8
+set label_chip ${net8/chip}
+set label_return label_net8_done
+goto friendly_chip
+:label_net8_done
+set nic8_name ${friendly_name}
+isset ${net9/mac} || goto render_nic_menu
+
+:label_net9
+set label_chip ${net9/chip}
+set label_return label_net9_done
+goto friendly_chip
+:label_net9_done
+set nic9_name ${friendly_name}
+isset ${net10/mac} || goto render_nic_menu
+
+:label_net10
+set label_chip ${net10/chip}
+set label_return label_net10_done
+goto friendly_chip
+:label_net10_done
+set nic10_name ${friendly_name}
+isset ${net11/mac} || goto render_nic_menu
+
+:label_net11
+set label_chip ${net11/chip}
+set label_return label_net11_done
+goto friendly_chip
+:label_net11_done
+set nic11_name ${friendly_name}
+isset ${net12/mac} || goto render_nic_menu
+
+:label_net12
+set label_chip ${net12/chip}
+set label_return label_net12_done
+goto friendly_chip
+:label_net12_done
+set nic12_name ${friendly_name}
+isset ${net13/mac} || goto render_nic_menu
+
+:label_net13
+set label_chip ${net13/chip}
+set label_return label_net13_done
+goto friendly_chip
+:label_net13_done
+set nic13_name ${friendly_name}
+isset ${net14/mac} || goto render_nic_menu
+
+:label_net14
+set label_chip ${net14/chip}
+set label_return label_net14_done
+goto friendly_chip
+:label_net14_done
+set nic14_name ${friendly_name}
+isset ${net15/mac} || goto render_nic_menu
+
+:label_net15
+set label_chip ${net15/chip}
+set label_return label_net15_done
+goto friendly_chip
+:label_net15_done
+set nic15_name ${friendly_name}
+goto render_nic_menu
+
+:friendly_chip
+set friendly_name ${label_chip}
+iseq ${label_chip} 82599-sfp && set friendly_name Intel 82599 / X520 10Gb SFP+ && goto ${label_return} ||
+iseq ${label_chip} 82599-sfp-sf2 && set friendly_name Intel 82599 / X520 10Gb SFP+ && goto ${label_return} ||
+iseq ${label_chip} 82599en-sfp && set friendly_name Intel 82599 / X520 10Gb SFP+ && goto ${label_return} ||
+iseq ${label_chip} x710-sfp && set friendly_name Intel X710 10Gb SFP+ && goto ${label_return} ||
+iseq ${label_chip} x710-sfp-b && set friendly_name Intel X710 10Gb SFP+ && goto ${label_return} ||
+iseq ${label_chip} x710-qsfp && set friendly_name Intel X710 10Gb QSFP+ && goto ${label_return} ||
+iseq ${label_chip} x710-10gt && set friendly_name Intel X710 10GBASE-T && goto ${label_return} ||
+iseq ${label_chip} x710-10gt4 && set friendly_name Intel X710 10GBASE-T4 && goto ${label_return} ||
+iseq ${label_chip} x710-10gt-b && set friendly_name Intel X710 10GBASE-T && goto ${label_return} ||
+iseq ${label_chip} e810c-bp && set friendly_name Intel E810-C Backplane && goto ${label_return} ||
+iseq ${label_chip} e810c-qsfp && set friendly_name Intel E810-C QSFP && goto ${label_return} ||
+iseq ${label_chip} e810c-sfp && set friendly_name Intel E810-C SFP && goto ${label_return} ||
+iseq ${label_chip} e810-xxv-bp && set friendly_name Intel E810-XXV Backplane && goto ${label_return} ||
+iseq ${label_chip} e810-xxv-qsfp && set friendly_name Intel E810-XXV QSFP && goto ${label_return} ||
+iseq ${label_chip} e810-xxv-sfp && set friendly_name Intel E810-XXV SFP && goto ${label_return} ||
+iseq ${label_chip} 82540em && set friendly_name Intel 82540EM Gigabit Ethernet && goto ${label_return} ||
+iseq ${label_chip} virtio-net && set friendly_name VirtIO Network Adapter && goto ${label_return} ||
+goto ${label_return}
+
+:render_nic_menu
+menu --name nic_menu Select the network interface
+item --menu nic_menu --gap -- Detected interfaces
+isset ${net0/mac} && item --menu nic_menu --key 0 nic_net0 0. ${nic0_name} - Port 1 - MAC ${net0/mac} ||
+isset ${net1/mac} && item --menu nic_menu --key 1 nic_net1 1. ${nic1_name} - Port 2 - MAC ${net1/mac} ||
+isset ${net2/mac} && item --menu nic_menu --key 2 nic_net2 2. ${nic2_name} - Port 3 - MAC ${net2/mac} ||
+isset ${net3/mac} && item --menu nic_menu --key 3 nic_net3 3. ${nic3_name} - Port 4 - MAC ${net3/mac} ||
+isset ${net4/mac} && item --menu nic_menu --key 4 nic_net4 4. ${nic4_name} - Port 5 - MAC ${net4/mac} ||
+isset ${net5/mac} && item --menu nic_menu --key 5 nic_net5 5. ${nic5_name} - Port 6 - MAC ${net5/mac} ||
+isset ${net6/mac} && item --menu nic_menu --key 6 nic_net6 6. ${nic6_name} - Port 7 - MAC ${net6/mac} ||
+isset ${net7/mac} && item --menu nic_menu --key 7 nic_net7 7. ${nic7_name} - Port 8 - MAC ${net7/mac} ||
+isset ${net8/mac} && item --menu nic_menu --key 8 nic_net8 8. ${nic8_name} - Port 9 - MAC ${net8/mac} ||
+isset ${net9/mac} && item --menu nic_menu --key 9 nic_net9 9. ${nic9_name} - Port 10 - MAC ${net9/mac} ||
+isset ${net10/mac} && item --menu nic_menu nic_net10 10. ${nic10_name} - Port 11 - MAC ${net10/mac} ||
+isset ${net11/mac} && item --menu nic_menu nic_net11 11. ${nic11_name} - Port 12 - MAC ${net11/mac} ||
+isset ${net12/mac} && item --menu nic_menu nic_net12 12. ${nic12_name} - Port 13 - MAC ${net12/mac} ||
+isset ${net13/mac} && item --menu nic_menu nic_net13 13. ${nic13_name} - Port 14 - MAC ${net13/mac} ||
+isset ${net14/mac} && item --menu nic_menu nic_net14 14. ${nic14_name} - Port 15 - MAC ${net14/mac} ||
+isset ${net15/mac} && item --menu nic_menu nic_net15 15. ${nic15_name} - Port 16 - MAC ${net15/mac} ||
+item --menu nic_menu --gap --
+item --menu nic_menu --key s shell Open iPXE shell
+item --menu nic_menu --key r reboot Reboot server
+choose --menu nic_menu nic_choice || goto nic_menu
+goto ${nic_choice}
+
+:no_nic
+echo ERROR: iPXE did not detect a network interface.
+echo Check firmware settings, link state, and NIC driver support.
+prompt --key 0x197e --timeout 5000 Press F12 for the iPXE shell... && shell ||
+goto nic_menu
+
+:nic_net0
+set nic net0
+set nic_number 0
+set nic_port 1
+set nic_name ${nic0_name}
+set nic_mac ${net0/mac}
+set nic_chip ${net0/chip}
+set nic_bus ${net0/busloc}
+set bootif 01-${net0/mac:hexhyp}
+goto network_form
+:nic_net1
+set nic net1
+set nic_number 1
+set nic_port 2
+set nic_name ${nic1_name}
+set nic_mac ${net1/mac}
+set nic_chip ${net1/chip}
+set nic_bus ${net1/busloc}
+set bootif 01-${net1/mac:hexhyp}
+goto network_form
+:nic_net2
+set nic net2
+set nic_number 2
+set nic_port 3
+set nic_name ${nic2_name}
+set nic_mac ${net2/mac}
+set nic_chip ${net2/chip}
+set nic_bus ${net2/busloc}
+set bootif 01-${net2/mac:hexhyp}
+goto network_form
+:nic_net3
+set nic net3
+set nic_number 3
+set nic_port 4
+set nic_name ${nic3_name}
+set nic_mac ${net3/mac}
+set nic_chip ${net3/chip}
+set nic_bus ${net3/busloc}
+set bootif 01-${net3/mac:hexhyp}
+goto network_form
+:nic_net4
+set nic net4
+set nic_number 4
+set nic_port 5
+set nic_name ${nic4_name}
+set nic_mac ${net4/mac}
+set nic_chip ${net4/chip}
+set nic_bus ${net4/busloc}
+set bootif 01-${net4/mac:hexhyp}
+goto network_form
+:nic_net5
+set nic net5
+set nic_number 5
+set nic_port 6
+set nic_name ${nic5_name}
+set nic_mac ${net5/mac}
+set nic_chip ${net5/chip}
+set nic_bus ${net5/busloc}
+set bootif 01-${net5/mac:hexhyp}
+goto network_form
+:nic_net6
+set nic net6
+set nic_number 6
+set nic_port 7
+set nic_name ${nic6_name}
+set nic_mac ${net6/mac}
+set nic_chip ${net6/chip}
+set nic_bus ${net6/busloc}
+set bootif 01-${net6/mac:hexhyp}
+goto network_form
+:nic_net7
+set nic net7
+set nic_number 7
+set nic_port 8
+set nic_name ${nic7_name}
+set nic_mac ${net7/mac}
+set nic_chip ${net7/chip}
+set nic_bus ${net7/busloc}
+set bootif 01-${net7/mac:hexhyp}
+goto network_form
+:nic_net8
+set nic net8
+set nic_number 8
+set nic_port 9
+set nic_name ${nic8_name}
+set nic_mac ${net8/mac}
+set nic_chip ${net8/chip}
+set nic_bus ${net8/busloc}
+set bootif 01-${net8/mac:hexhyp}
+goto network_form
+:nic_net9
+set nic net9
+set nic_number 9
+set nic_port 10
+set nic_name ${nic9_name}
+set nic_mac ${net9/mac}
+set nic_chip ${net9/chip}
+set nic_bus ${net9/busloc}
+set bootif 01-${net9/mac:hexhyp}
+goto network_form
+:nic_net10
+set nic net10
+set nic_number 10
+set nic_port 11
+set nic_name ${nic10_name}
+set nic_mac ${net10/mac}
+set nic_chip ${net10/chip}
+set nic_bus ${net10/busloc}
+set bootif 01-${net10/mac:hexhyp}
+goto network_form
+:nic_net11
+set nic net11
+set nic_number 11
+set nic_port 12
+set nic_name ${nic11_name}
+set nic_mac ${net11/mac}
+set nic_chip ${net11/chip}
+set nic_bus ${net11/busloc}
+set bootif 01-${net11/mac:hexhyp}
+goto network_form
+:nic_net12
+set nic net12
+set nic_number 12
+set nic_port 13
+set nic_name ${nic12_name}
+set nic_mac ${net12/mac}
+set nic_chip ${net12/chip}
+set nic_bus ${net12/busloc}
+set bootif 01-${net12/mac:hexhyp}
+goto network_form
+:nic_net13
+set nic net13
+set nic_number 13
+set nic_port 14
+set nic_name ${nic13_name}
+set nic_mac ${net13/mac}
+set nic_chip ${net13/chip}
+set nic_bus ${net13/busloc}
+set bootif 01-${net13/mac:hexhyp}
+goto network_form
+:nic_net14
+set nic net14
+set nic_number 14
+set nic_port 15
+set nic_name ${nic14_name}
+set nic_mac ${net14/mac}
+set nic_chip ${net14/chip}
+set nic_bus ${net14/busloc}
+set bootif 01-${net14/mac:hexhyp}
+goto network_form
+:nic_net15
+set nic net15
+set nic_number 15
+set nic_port 16
+set nic_name ${nic15_name}
+set nic_mac ${net15/mac}
+set nic_chip ${net15/chip}
+set nic_bus ${net15/busloc}
+set bootif 01-${net15/mac:hexhyp}
+goto network_form
+
+:network_form
+echo
+echo Selected NIC ${nic_number}: ${nic_name} - Port ${nic_port}
+echo PCI ${nic_bus} - MAC ${nic_mac}
+echo
+echo Static IPv4 address with CIDR prefix, for example 192.0.2.10/24
+read input_cidr || goto network_form
+autonet input_ip:ipv4 input_prefix:int8 input_netmask:ipv4 input_gateway:ipv4 ${input_cidr} || goto invalid_cidr
+iseq ${input_prefix} 32 && goto read_gateway_manual ||
+echo IPv4 gateway, or press Enter for calculated ${input_gateway}
+iseq ${input_prefix} 31 && iseq ${input_ip} ${input_gateway} && echo WARNING: The first /31 address is this host; edit the gateway to its peer. ||
+read input_gateway || goto network_form
+goto read_dns
+
+:read_gateway_manual
+echo IPv4 gateway - manual entry is required for a /32 assignment
+read input_gateway || goto network_form
+
+:read_dns
+isset ${input_dns} || set input_dns 8.8.8.8
+echo IPv4 DNS server, or press Enter for ${input_dns}
+read input_dns || goto network_form
+goto validate_addresses
+
+:invalid_cidr
+echo ERROR: ${input_cidr} is not a valid IPv4/prefix assignment.
+sleep 2
+goto network_form
+
+:validate_addresses
+set validated_ip:ipv4 ${input_ip} || goto invalid_ip
+set validated_gateway:ipv4 ${input_gateway} || goto invalid_gateway
+set validated_dns:ipv4 ${input_dns} || goto invalid_dns
+set validated_netmask:ipv4 ${input_netmask} || goto invalid_netmask
+goto apply_network
+
+:invalid_ip
+echo ERROR: ${input_ip} is not a valid IPv4 address.
+sleep 2
+goto network_form
+:invalid_gateway
+echo ERROR: ${input_gateway} is not a valid IPv4 gateway.
+sleep 2
+goto network_form
+:invalid_dns
+echo ERROR: ${input_dns} is not a valid IPv4 DNS server.
+sleep 2
+goto network_form
+:invalid_netmask
+echo ERROR: Internal prefix conversion failed.
+sleep 2
+goto network_form
+
+:apply_network
+ifclose
+set ${nic}/ip ${validated_ip} || goto network_failed
+set ${nic}/netmask ${validated_netmask} || goto network_failed
+set ${nic}/gateway ${validated_gateway} || goto network_failed
+set dns ${validated_dns} || goto network_failed
+ifopen ${nic} || goto network_failed
+goto network_summary
+
+:network_failed
+echo ERROR: Could not apply the static network configuration to ${nic}.
+echo No installer has been started and no disk has been touched.
+prompt --key 0x1b --timeout 5000 Press Esc to edit the settings... ||
+goto network_form
+
+:network_summary
+menu --name network_summary Confirm network configuration
+item --menu network_summary --gap -- NIC ${nic_number}: ${nic_name} - Port ${nic_port}
+item --menu network_summary --gap -- PCI: ${nic_bus}
+item --menu network_summary --gap -- MAC: ${nic_mac}
+item --menu network_summary --gap -- IPv4: ${validated_ip}/${input_prefix}
+item --menu network_summary --gap -- Gateway: ${validated_gateway}
+item --menu network_summary --gap -- DNS: ${validated_dns}
+item --menu network_summary --gap --
+item --menu network_summary --key c main_menu Continue to OneBoot menu
+item --menu network_summary --key e network_form Edit network settings
+item --menu network_summary --key n nic_menu Select another NIC
+item --menu network_summary --key s shell Open iPXE shell
+item --menu network_summary --key r reboot Reboot server
+choose --menu network_summary --default main_menu summary_choice || goto network_summary
+goto ${summary_choice}
+
+:main_menu
+menu --name main_menu OneBoot v${oneboot_version}
+item --menu main_menu --gap -- Select a category
+item --menu main_menu --key u os_menu Ubuntu Server installers
+item --menu main_menu --key a almalinux_menu AlmaLinux installers
+item --menu main_menu --key d debian_menu Debian installers
+item --menu main_menu --key p proxmox_menu Proxmox VE installers (Testing)
+item --menu main_menu --key t tools_menu Tools
+item --menu main_menu --gap --
+item --menu main_menu --key e network_form Edit network settings
+item --menu main_menu --key n nic_menu Select another NIC
+item --menu main_menu --key s shell Open iPXE shell
+item --menu main_menu --key l last_transfer_error Last transfer error
+item --menu main_menu --key r reboot Reboot server
+choose --menu main_menu main_choice || goto main_menu
+goto ${main_choice}
+
+:os_menu
+menu --name os_menu Select Ubuntu Server version
+item --menu os_menu --gap -- Ubuntu 18/20/22/24/26: choose Manual or Auto after selecting the version
+item --menu os_menu --key 1 boot_ubuntu_2604 Ubuntu Server 26.04 LTS
+item --menu os_menu --key 2 boot_ubuntu_2404 Ubuntu Server 24.04.4 LTS
+item --menu os_menu --key 3 boot_ubuntu_2204 Ubuntu Server 22.04.5 LTS
+item --menu os_menu --key 4 boot_ubuntu_2004_live Ubuntu Server 20.04 LTS
+item --menu os_menu --key 5 boot_ubuntu_1804_live Ubuntu Server 18.04 LTS
+item --menu os_menu --key 6 boot_ubuntu_2004_net Ubuntu Server 20.04 Net install
+item --menu os_menu --key 7 boot_ubuntu_1804_net Ubuntu Server 18.04 Net install
+item --menu os_menu --gap --
+item --menu os_menu --key b main_menu Back to OneBoot menu
+item --menu os_menu --key e network_form Edit network settings
+item --menu os_menu --key n nic_menu Select another NIC
+item --menu os_menu --key s shell Open iPXE shell
+item --menu os_menu --key r reboot Reboot server
+choose --menu os_menu os_choice || goto os_menu
+goto ${os_choice}
+
+:almalinux_menu
+menu --name almalinux_menu Select AlmaLinux version
+item --menu almalinux_menu --gap -- Interactive Anaconda installer - packages stream from the OneBoot VPS
+item --menu almalinux_menu --key 1 boot_almalinux_102 AlmaLinux 10.2 Minimal
+item --menu almalinux_menu --key 2 boot_almalinux_98 AlmaLinux 9.8 Minimal
+item --menu almalinux_menu --key 3 boot_almalinux_810 AlmaLinux 8.10 Minimal
+item --menu almalinux_menu --gap --
+item --menu almalinux_menu --key b main_menu Back to OneBoot menu
+item --menu almalinux_menu --key e network_form Edit network settings
+item --menu almalinux_menu --key n nic_menu Select another NIC
+item --menu almalinux_menu --key s shell Open iPXE shell
+item --menu almalinux_menu --key r reboot Reboot server
+choose --menu almalinux_menu almalinux_choice || goto almalinux_menu
+goto ${almalinux_choice}
+
+:debian_menu
+menu --name debian_menu Select Debian version
+item --menu debian_menu --gap -- Interactive Debian Installer - packages download from an official Debian mirror
+item --menu debian_menu --key 1 boot_debian_13 Debian 13.6 Trixie netboot
+item --menu debian_menu --key 2 boot_debian_12 Debian 12.15 Bookworm netboot
+item --menu debian_menu --key 3 boot_debian_11 Debian 11.11 Bullseye netboot
+item --menu debian_menu --key 4 boot_debian_10 Debian 10.13 Buster netboot
+item --menu debian_menu --gap --
+item --menu debian_menu --key b main_menu Back to OneBoot menu
+item --menu debian_menu --key e network_form Edit network settings
+item --menu debian_menu --key n nic_menu Select another NIC
+item --menu debian_menu --key s shell Open iPXE shell
+item --menu debian_menu --key r reboot Reboot server
+choose --menu debian_menu debian_choice || goto debian_menu
+goto ${debian_choice}
+
+:boot_debian_10
+set debian_version 10.13
+set debian_suite buster
+set debian_name Debian 10.13 Buster
+goto boot_debian
+
+:boot_debian_11
+set debian_version 11.11
+set debian_suite bullseye
+set debian_name Debian 11.11 Bullseye
+goto boot_debian
+
+:boot_debian_12
+set debian_version 12.15
+set debian_suite bookworm
+set debian_name Debian 12.15 Bookworm
+goto boot_debian
+
+:boot_debian_13
+set debian_version 13.6
+set debian_suite trixie
+set debian_name Debian 13.6 Trixie
+goto boot_debian
+
+:boot_debian
+set debian_url ${base_url}/debian/${debian_version}
+echo
+echo Starting ${debian_name} netboot installer
+echo NIC ${nic_number}: ${nic_mac} - IPv4 ${validated_ip}/${input_prefix}
+echo OneBoot loads only the signed Debian kernel and initrd over HTTPS.
+echo Debian Installer will ask for NIC, static IPv4 settings, hostname, and package mirror.
+echo No unattended-install file, automatic partitioning, or disk-selection policy is supplied.
+echo
+imgfree
+set ob_boot_resource ${debian_url}/linux
+kernel ${debian_url}/linux initrd=initrd.gz netcfg/disable_autoconfig=true || oberror kernel ${debian_url}/linux ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto debian_download_failed
+initrd --name initrd.gz ${debian_url}/initrd.gz || oberror initrd ${debian_url}/initrd.gz ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto debian_download_failed
+boot || oberror boot ${ob_boot_resource} ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto debian_boot_failed
+
+:debian_download_failed
+echo
+echo ERROR: A required Debian netboot file could not be downloaded.
+echo Check the URL, link, gateway, DNS, and OneBoot server allowlist.
+echo No installer was started and no disk was touched.
+oberror --show
+prompt --key 0x1b Press Esc to return to the Debian menu... ||
+goto debian_menu
+
+:debian_boot_failed
+echo
+echo ERROR: Debian Installer could not be started after the files were downloaded.
+echo No OneBoot disk automation exists.
+oberror --show
+prompt --key 0x1b Press Esc to return to the Debian menu... ||
+goto debian_menu
+
+:boot_almalinux_810
+set almalinux_version 8.10
+set almalinux_name AlmaLinux 8.10 Minimal
+goto boot_almalinux
+
+:boot_almalinux_98
+set almalinux_version 9.8
+set almalinux_name AlmaLinux 9.8 Minimal
+goto boot_almalinux
+
+:boot_almalinux_102
+set almalinux_version 10.2
+set almalinux_name AlmaLinux 10.2 Minimal
+goto boot_almalinux
+
+:boot_almalinux
+set almalinux_url ${base_url}/almalinux/${almalinux_version}
+echo
+echo Starting ${almalinux_name}
+echo NIC ${nic_number}: ${nic_mac} - IPv4 ${validated_ip}/${input_prefix}
+echo The kernel and initrd load first; Anaconda streams packages from OneBoot over HTTPS.
+echo The full AlmaLinux ISO is not loaded into RAM. No Kickstart is supplied.
+echo AlmaLinux 10.2 x86_64 requires an x86-64-v3-capable CPU.
+echo
+imgfree
+set ob_boot_resource ${almalinux_url}/images/pxeboot/vmlinuz
+kernel ${almalinux_url}/images/pxeboot/vmlinuz initrd=initrd.img rd.neednet=1 inst.waitfornet=30 ifname=bootnet:${nic_mac} ip=${validated_ip}::${validated_gateway}:${validated_netmask}:almalinux:bootnet:none bootdev=bootnet nameserver=${validated_dns} inst.repo=${almalinux_url} || oberror kernel ${almalinux_url}/images/pxeboot/vmlinuz ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto almalinux_download_failed
+initrd --name initrd.img ${almalinux_url}/images/pxeboot/initrd.img || oberror initrd ${almalinux_url}/images/pxeboot/initrd.img ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto almalinux_download_failed
+boot || oberror boot ${ob_boot_resource} ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto almalinux_boot_failed
+
+:almalinux_download_failed
+echo
+echo ERROR: A required AlmaLinux boot file could not be downloaded.
+echo Check the URL, link, gateway, DNS, and OneBoot server allowlist.
+echo No installer was started and no disk was touched.
+oberror --show
+prompt --key 0x1b Press Esc to return to the AlmaLinux menu... ||
+goto almalinux_menu
+
+:almalinux_boot_failed
+echo
+echo ERROR: AlmaLinux could not be started after the files were downloaded.
+echo No OneBoot disk automation exists.
+oberror --show
+prompt --key 0x1b Press Esc to return to the AlmaLinux menu... ||
+goto almalinux_menu
+
+:boot_ubuntu_2204
+set ubuntu_backend casper
+set ubuntu_version 22.04.5
+set ubuntu_name Ubuntu Server 22.04.5 LTS
+goto ubuntu_install_mode
+:boot_ubuntu_2404
+set ubuntu_backend casper
+set ubuntu_version 24.04.4
+set ubuntu_name Ubuntu Server 24.04.4 LTS
+goto ubuntu_install_mode
+:boot_ubuntu_2604
+set ubuntu_backend casper
+set ubuntu_version 26.04
+set ubuntu_name Ubuntu Server 26.04 LTS
+goto ubuntu_install_mode
+:ubuntu_install_mode
+clear oneboot_password
+clear oneboot_confirm
+obprofile clear ||
+menu --name ubuntu_mode ${ubuntu_name} - installation mode
+iseq ${ubuntu_backend} di && item --menu ubuntu_mode --gap -- Auto: classic network installer. Manual: original Full ISO. ||
+item --menu ubuntu_mode --gap -- Manual asks Ubuntu's normal installer questions.
+item --menu ubuntu_mode --gap -- Auto configures the first eligible fixed disk only.
+item --menu ubuntu_mode --key m ubuntu_manual Manual install
+item --menu ubuntu_mode --key a ubuntu_auto_form Auto install
+item --menu ubuntu_mode --key b os_menu Back to Ubuntu versions
+choose --menu ubuntu_mode --default ubuntu_manual ubuntu_mode_choice || goto os_menu
+goto ${ubuntu_mode_choice}
+
+:ubuntu_auto_form
+clear oneboot_password
+clear oneboot_confirm
+echo
+echo ${ubuntu_name} - Auto install
+echo Hostname:
+read oneboot_hostname || goto ubuntu_install_mode
+echo Password (visible):
+read oneboot_password || goto ubuntu_install_mode
+echo Confirm password (visible):
+read oneboot_confirm || goto ubuntu_install_mode
+obprofile check oneboot_hostname oneboot_password oneboot_confirm || goto ubuntu_profile_invalid
+goto ubuntu_auto_review
+
+:ubuntu_profile_invalid
+prompt Press any key to enter the profile again... ||
+goto ubuntu_auto_form
+
+:ubuntu_auto_review
+menu --name ubuntu_review Review automatic installation
+item --menu ubuntu_review --gap -- OS: ${ubuntu_name}
+item --menu ubuntu_review --gap -- Hostname: ${oneboot_hostname}
+item --menu ubuntu_review --gap -- NIC: ${nic_mac}
+item --menu ubuntu_review --gap -- IPv4: ${validated_ip}/${input_prefix}
+item --menu ubuntu_review --gap -- Gateway: ${validated_gateway} - DNS: ${validated_dns}
+item --menu ubuntu_review --gap -- Login: root and user (sudo), using the confirmed password
+item --menu ubuntu_review --gap -- ERASES the first eligible fixed disk: boot partitions and root.
+item --menu ubuntu_review --gap -- Other disks remain outside this installation layout.
+item --menu ubuntu_review --key g ubuntu_auto_go Go - erase the first disk and install automatically
+item --menu ubuntu_review --key e ubuntu_auto_form Edit hostname / visible password
+item --menu ubuntu_review --key b ubuntu_install_mode Back to installation mode
+choose --menu ubuntu_review --default ubuntu_install_mode ubuntu_review_choice || goto ubuntu_install_mode
+goto ${ubuntu_review_choice}
+
+:ubuntu_auto_go
+imgfree
+iseq ${ubuntu_backend} di && goto ubuntu_di_profile ||
+obpayload restore || goto ubuntu_local_helpers_failed
+obprofile create oneboot_hostname oneboot_password oneboot_confirm || goto ubuntu_profile_invalid
+clear oneboot_password
+clear oneboot_confirm
+set ubuntu_auto_args autoinstall ds=nocloud oneboot.autoinstall=1
+goto ubuntu_live_start
+
+:ubuntu_di_profile
+obprofile create oneboot_hostname oneboot_password oneboot_confirm || goto ubuntu_profile_invalid
+clear oneboot_password
+clear oneboot_confirm
+set ubuntu_di_base https://github.com/AlbertStrauss/OneBoot/releases/download/ubuntu-legacy-boot-v1.4-r4
+set ob_boot_resource ${ubuntu_di_base}/ubuntu-${ubuntu_net_version}-vmlinuz
+echo Starting ${ubuntu_name} automatic classic network installer.
+echo Packages download from the official Ubuntu archive. Target: first fixed disk only.
+kernel --name kboot ${ob_boot_resource} initrd=initrd.magic BOOTIF=${bootif} netcfg/choose_interface=${nic_mac} netcfg/disable_autoconfig=true netcfg/disable_dhcp=true netcfg/get_ipaddress=${validated_ip} netcfg/get_netmask=${validated_netmask} netcfg/get_gateway=${validated_gateway} netcfg/get_nameservers=${validated_dns} netcfg/confirm_static=true netcfg/get_hostname=${oneboot_hostname} netcfg/hostname=${oneboot_hostname} oneboot.prefix=${input_prefix} oneboot.autoinstall=1 mirror/country=manual mirror/http/hostname=archive.ubuntu.com mirror/http/directory=/ubuntu mirror/http/proxy= mirror/suite=${ubuntu_net_suite} apt-setup/security_host=security.ubuntu.com nomodeset modprobe.blacklist=mgag200 auto=true priority=critical locale=en_US.UTF-8 keyboard-configuration/layoutcode=us console-setup/ask_detect=false console=ttyS0,115200n8 console=tty0 --- || oberror kernel ${ob_boot_resource} ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto ubuntu_live_failed
+initrd --name iboot ${ubuntu_di_base}/ubuntu-${ubuntu_net_version}-auto-initrd || oberror initrd ${ubuntu_di_base}/ubuntu-${ubuntu_net_version}-auto-initrd ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto ubuntu_live_failed
+obprofile prepend iboot || goto ubuntu_local_helpers_failed
+boot || oberror boot ${ob_boot_resource} ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto ubuntu_live_failed
+
+:ubuntu_manual
+clear oneboot_password
+clear oneboot_confirm
+clear ubuntu_auto_args
+imgfree
+iseq ${ubuntu_backend} di && goto boot_ubuntu_legacy_live ||
+obpayload restore || goto ubuntu_local_helpers_failed
+goto ubuntu_live_start
+
+:ubuntu_live_start
+set ubuntu_boot_base https://github.com/AlbertStrauss/OneBoot/releases/download/ubuntu-live-boot-v1.3
+set ubuntu_iso https://releases.ubuntu.com/${ubuntu_version}/ubuntu-${ubuntu_version}-live-server-amd64.iso
+set ob_boot_resource ${ubuntu_boot_base}/ubuntu-${ubuntu_version}-vmlinuz
+echo Starting ${ubuntu_name}. Full ISO downloads into RAM; 8 GiB RAM recommended.
+kernel --name kboot ${ob_boot_resource} initrd=initrd.magic root=/dev/ram0 BOOTIF=${bootif} ip=${validated_ip}::${validated_gateway}:${validated_netmask}:::none:${validated_dns} onebootcidr=${input_prefix} url=${ubuntu_iso} ${ubuntu_auto_args} cloud-config-url=/dev/null console=ttyS0,115200n8 console=tty0 --- || oberror kernel ${ob_boot_resource} ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto ubuntu_live_failed
+initrd --name iboot ${ubuntu_boot_base}/ubuntu-${ubuntu_version}-initrd || oberror initrd ${ubuntu_boot_base}/ubuntu-${ubuntu_version}-initrd ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto ubuntu_live_failed
+boot || oberror boot ${ob_boot_resource} ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto ubuntu_live_failed
+
+:ubuntu_live_failed
+imgfree kboot ||
+imgfree iboot ||
+obprofile clear ||
+clear ubuntu_auto_args
+oberror --show
+prompt --key 0x1b Ubuntu boot failed. Press Esc to choose the installation mode again... ||
+goto ubuntu_install_mode
+
+:ubuntu_local_helpers_failed
+echo OneBoot could not restore its local Ubuntu helper files. No installer was started.
+prompt --key 0x1b Press Esc to return... ||
+goto ubuntu_install_mode
+
+:download_failed
+echo
+echo ERROR: A required Ubuntu boot file could not be downloaded.
+echo Check the URL, link, gateway, DNS, and OneBoot server.
+echo No installer was started and no disk was touched.
+oberror --show
+prompt --key 0x1b Press Esc to return to the Ubuntu menu... ||
+goto os_menu
+
+:boot_failed
+echo
+echo ERROR: Ubuntu could not be started after the files were downloaded.
+echo No OneBoot disk automation exists.
+oberror --show
+prompt --key 0x1b Press Esc to return to the Ubuntu menu... ||
+goto os_menu
+
+:tools_menu
+menu --name tools_menu OneBoot Tools
+item --menu tools_menu --gap -- Recovery tools never modify disks automatically
+item --menu tools_menu --key 1 linux_rescue_menu Linux Rescue - SystemRescue ${systemrescue_version}
+item --menu tools_menu --key 2 memory_test_menu Memory Test - Memtest86+ ${memtest_version}
+item --menu tools_menu --key 3 windows_pe_menu Windows PE Maintenance - Microsoft ADK
+item --menu tools_menu --key 4 minitool_menu MiniTool Partition Wizard ${minitool_version} WinPE
+item --menu tools_menu --gap --
+item --menu tools_menu --key b main_menu Back to OneBoot menu
+item --menu tools_menu --key e network_form Edit network settings
+item --menu tools_menu --key s shell Open iPXE shell
+item --menu tools_menu --key r reboot Reboot server
+choose --menu tools_menu tools_choice || goto tools_menu
+goto ${tools_choice}
+
+:linux_rescue_menu
+menu --name linux_rescue_menu Linux Rescue - SystemRescue ${systemrescue_version}
+item --menu linux_rescue_menu --gap -- Full rescue environment loads into RAM over HTTPS
+item --menu linux_rescue_menu --gap -- Requires at least 4 GiB RAM (8 GiB recommended)
+item --menu linux_rescue_menu --gap -- Safe mode does not auto-activate MD RAID, LVM or device-mapper
+item --menu linux_rescue_menu --key 1 boot_linux_rescue_safe Safe mode (recommended)
+item --menu linux_rescue_menu --key 2 boot_linux_rescue_standard Standard mode (auto-detect storage stacks)
+item --menu linux_rescue_menu --gap --
+item --menu linux_rescue_menu --key b tools_menu Back to Tools
+item --menu linux_rescue_menu --key r reboot Reboot server
+choose --menu linux_rescue_menu rescue_choice || goto linux_rescue_menu
+goto ${rescue_choice}
+
+:boot_linux_rescue_safe
+set rescue_options nomdlvm
+set rescue_mode Safe mode
+goto boot_linux_rescue
+
+:boot_linux_rescue_standard
+set rescue_options
+set rescue_mode Standard mode
+goto boot_linux_rescue
+
+:boot_linux_rescue
+set rescue_url ${base_url}/tools/systemrescue/${systemrescue_version}
+echo
+echo Starting SystemRescue ${systemrescue_version} - ${rescue_mode}
+echo NIC ${nic_number}: ${nic_mac} - IPv4 ${validated_ip}/${input_prefix}
+echo The rescue filesystem downloads over HTTPS and is verified with SHA-512.
+echo SystemRescue requires at least 4 GiB RAM for this HTTP-to-RAM boot.
+echo No disk operation is started automatically by OneBoot.
+echo
+imgfree
+set ob_boot_resource ${rescue_url}/sysresccd/boot/x86_64/vmlinuz
+kernel ${rescue_url}/sysresccd/boot/x86_64/vmlinuz archisobasedir=sysresccd archiso_http_srv=${rescue_url}/ checksum BOOTIF=${bootif} ip=${validated_ip}::${validated_gateway}:${validated_netmask} setkmap=us ${rescue_options} || oberror kernel ${rescue_url}/sysresccd/boot/x86_64/vmlinuz ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto rescue_download_failed
+initrd --name intel_ucode.img ${rescue_url}/sysresccd/boot/intel_ucode.img || oberror initrd ${rescue_url}/sysresccd/boot/intel_ucode.img ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto rescue_download_failed
+initrd --name amd_ucode.img ${rescue_url}/sysresccd/boot/amd_ucode.img || oberror initrd ${rescue_url}/sysresccd/boot/amd_ucode.img ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto rescue_download_failed
+initrd --name sysresccd.img ${rescue_url}/sysresccd/boot/x86_64/sysresccd.img || oberror initrd ${rescue_url}/sysresccd/boot/x86_64/sysresccd.img ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto rescue_download_failed
+boot || oberror boot ${ob_boot_resource} ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto rescue_boot_failed
+
+:rescue_download_failed
+echo
+echo ERROR: A required SystemRescue boot file could not be downloaded.
+echo Check the URL, link, gateway, and OneBoot server allowlist.
+echo No rescue environment was started and no disk was touched.
+oberror --show
+prompt --key 0x1b Press Esc to return to Linux Rescue... ||
+goto linux_rescue_menu
+
+:rescue_boot_failed
+echo
+echo ERROR: SystemRescue could not be started after the files were downloaded.
+echo No OneBoot disk automation exists.
+oberror --show
+prompt --key 0x1b Press Esc to return to Linux Rescue... ||
+goto linux_rescue_menu
+
+:memory_test_menu
+menu --name memory_test_menu Memory Test - Memtest86+ ${memtest_version}
+item --menu memory_test_menu --gap -- Tests run outside the operating system and do not access disks
+item --menu memory_test_menu --gap -- One full pass is the normal check; leave it longer for intermittent faults
+item --menu memory_test_menu --key 1 boot_memtest_standard Start standard test (all tests, SMP)
+item --menu memory_test_menu --key 2 boot_memtest_compat Start compatibility test (single CPU)
+item --menu memory_test_menu --gap -- Press Esc inside Memtest86+ to stop and reboot
+item --menu memory_test_menu --key b tools_menu Back to Tools
+item --menu memory_test_menu --key r reboot Reboot server
+choose --menu memory_test_menu memtest_choice || goto memory_test_menu
+goto ${memtest_choice}
+
+:boot_memtest_standard
+set memtest_options dark
+set memtest_mode Standard
+goto boot_memtest
+
+:boot_memtest_compat
+set memtest_options dark nosmp
+set memtest_mode Compatibility
+goto boot_memtest
+
+:boot_memtest
+echo
+echo Starting Memtest86+ ${memtest_version} - ${memtest_mode}
+echo Secure Boot must be disabled for the unsigned diagnostic binary.
+echo No disk is accessed by Memtest86+.
+echo
+imgfree
+set ob_boot_resource ${base_url}/tools/memtest86plus/${memtest_version}/mt86p_810_x86_64
+kernel ${base_url}/tools/memtest86plus/${memtest_version}/mt86p_810_x86_64 ${memtest_options} || oberror kernel ${base_url}/tools/memtest86plus/${memtest_version}/mt86p_810_x86_64 ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto memtest_download_failed
+boot || oberror boot ${ob_boot_resource} ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto memtest_boot_failed
+
+:memtest_download_failed
+echo
+echo ERROR: Memtest86+ could not be downloaded over HTTPS.
+echo No memory test was started and no disk was touched.
+oberror --show
+prompt --key 0x1b Press Esc to return to Memory Test... ||
+goto memory_test_menu
+
+:memtest_boot_failed
+echo
+echo ERROR: Memtest86+ could not be started on this firmware.
+echo Try compatibility mode and confirm that Secure Boot is disabled.
+oberror --show
+prompt --key 0x1b Press Esc to return to Memory Test... ||
+goto memory_test_menu
+
+:windows_pe_menu
+menu --name windows_pe_menu Windows PE Maintenance - Microsoft ADK
+item --menu windows_pe_menu --gap -- Official x64 WinPE; loads entirely into RAM over HTTPS
+item --menu windows_pe_menu --gap -- No automatic disk changes; destructive DiskPart commands stay manual
+item --menu windows_pe_menu --key 1 boot_windows_pe Start Windows PE Maintenance
+item --menu windows_pe_menu --gap --
+item --menu windows_pe_menu --key b tools_menu Back to Tools
+item --menu windows_pe_menu --key r reboot Reboot server
+choose --menu windows_pe_menu winpe_choice || goto windows_pe_menu
+goto ${winpe_choice}
+
+:boot_windows_pe
+set winpe_url ${base_url}/tools/windows-pe/${winpe_version}
+echo
+echo Starting OneBoot Windows PE Maintenance
+echo Source: official Microsoft ADK 10.1.26100.2454 with KB5101684 applied.
+echo The WinPE image loads into RAM. OneBoot does not modify disks automatically.
+echo
+imgfree
+set ob_boot_resource ${winpe_url}/wimboot
+kernel ${winpe_url}/wimboot quiet || oberror kernel ${winpe_url}/wimboot ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto winpe_download_failed
+initrd --name bootmgr ${winpe_url}/bootmgr bootmgr || oberror initrd ${winpe_url}/bootmgr ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto winpe_download_failed
+initrd --name BCD ${winpe_url}/BCD BCD || oberror initrd ${winpe_url}/BCD ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto winpe_download_failed
+initrd --name boot.sdi ${winpe_url}/boot.sdi boot.sdi || oberror initrd ${winpe_url}/boot.sdi ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto winpe_download_failed
+initrd --name boot.wim ${winpe_url}/boot.wim boot.wim || oberror initrd ${winpe_url}/boot.wim ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto winpe_download_failed
+boot || oberror boot ${ob_boot_resource} ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto winpe_boot_failed
+
+:winpe_download_failed
+echo
+echo ERROR: A required Windows PE boot file could not be downloaded.
+echo Check the URL, link, gateway, and OneBoot server allowlist.
+echo Windows PE was not started and no disk was touched.
+oberror --show
+prompt --key 0x1b Press Esc to return to Windows PE... ||
+goto windows_pe_menu
+
+:winpe_boot_failed
+echo
+echo ERROR: Windows PE could not be started after the files were downloaded.
+echo No OneBoot disk automation exists.
+oberror --show
+prompt --key 0x1b Press Esc to return to Windows PE... ||
+goto windows_pe_menu
+
+:minitool_menu
+menu --name minitool_menu MiniTool Partition Wizard ${minitool_version} WinPE
+item --menu minitool_menu --gap -- Third-party image supplied by the operator; loads entirely into RAM
+item --menu minitool_menu --gap -- Delete, wipe, format, convert and apply can destroy data
+item --menu minitool_menu --gap -- Confirm the disk by model and capacity before any write operation
+item --menu minitool_menu --key 1 boot_minitool Start MiniTool Partition Wizard
+item --menu minitool_menu --gap --
+item --menu minitool_menu --key b tools_menu Back to Tools
+item --menu minitool_menu --key r reboot Reboot server
+choose --menu minitool_menu minitool_choice || goto minitool_menu
+goto ${minitool_choice}
+
+:boot_minitool
+set minitool_url ${base_url}/tools/minitool/${minitool_version}
+set wimboot_url ${base_url}/tools/windows-pe/${winpe_version}
+echo
+echo Starting MiniTool Partition Wizard ${minitool_version} WinPE
+echo WARNING: this tool can erase partitions or complete disks after your confirmation.
+echo Verify the selected disk by model and capacity before clicking Apply.
+echo OneBoot itself performs no disk operation.
+echo
+imgfree
+set ob_boot_resource ${wimboot_url}/wimboot
+kernel ${wimboot_url}/wimboot quiet || oberror kernel ${wimboot_url}/wimboot ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto minitool_download_failed
+initrd --name bootmgr ${minitool_url}/bootmgr bootmgr || oberror initrd ${minitool_url}/bootmgr ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto minitool_download_failed
+initrd --name BCD ${minitool_url}/BCD BCD || oberror initrd ${minitool_url}/BCD ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto minitool_download_failed
+initrd --name boot.sdi ${minitool_url}/boot.sdi boot.sdi || oberror initrd ${minitool_url}/boot.sdi ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto minitool_download_failed
+initrd --name boot.wim ${minitool_url}/boot.wim boot.wim || oberror initrd ${minitool_url}/boot.wim ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto minitool_download_failed
+boot || oberror boot ${ob_boot_resource} ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto minitool_boot_failed
+
+:minitool_download_failed
+echo
+echo ERROR: A required MiniTool WinPE file could not be downloaded.
+echo MiniTool was not started and no disk was touched.
+oberror --show
+prompt --key 0x1b Press Esc to return to MiniTool... ||
+goto minitool_menu
+
+:minitool_boot_failed
+echo
+echo ERROR: MiniTool WinPE could not be started after the files were downloaded.
+echo No OneBoot disk automation exists.
+oberror --show
+prompt --key 0x1b Press Esc to return to MiniTool... ||
+goto minitool_menu
+
+:last_transfer_error
+oberror --show
+prompt --key 0x1b Press Esc to return to OneBoot... ||
+goto main_menu
+
+:shell
+echo Type exit to return to OneBoot.
+shell
+goto nic_menu
+
+:reboot
+reboot
+
+:boot_ubuntu_1804_live
+set ubuntu_version 18.04.6
+set ubuntu_net_version 18.04
+set ubuntu_net_suite bionic
+set ubuntu_name Ubuntu Server 18.04.6 LTS
+set ubuntu_backend di
+set ubuntu_legacy_menu ubuntu_install_mode
+goto ubuntu_install_mode
+:boot_ubuntu_1804_net
+set ubuntu_net_version 18.04
+set ubuntu_net_suite bionic
+set ubuntu_legacy_menu os_menu
+goto boot_ubuntu_legacy_net
+
+
+:boot_ubuntu_2004_live
+set ubuntu_version 20.04.6
+set ubuntu_net_version 20.04
+set ubuntu_net_suite focal
+set ubuntu_name Ubuntu Server 20.04.6 LTS
+set ubuntu_backend di
+set ubuntu_legacy_menu ubuntu_install_mode
+goto ubuntu_install_mode
+:boot_ubuntu_2004_net
+set ubuntu_net_version 20.04
+set ubuntu_net_suite focal
+set ubuntu_legacy_menu os_menu
+goto boot_ubuntu_legacy_net
+
+:boot_ubuntu_legacy_live
+set ubuntu_url ${base_url}/ubuntu/${ubuntu_version}
+set ubuntu_iso ${base_url}/ubuntu/ubuntu-${ubuntu_version}-live-server-amd64.iso
+echo
+echo Starting ${ubuntu_name}
+echo The complete ISO downloads to RAM over authenticated HTTPS.
+echo 4 GiB RAM recommended. No autoinstall or automatic disk selection is supplied.
+echo
+imgfree
+set ob_boot_resource ${ubuntu_url}/vmlinuz
+kernel ${ubuntu_url}/vmlinuz initrd=initrd boot=casper root=/dev/ram0 BOOTIF=${bootif} ip=${validated_ip}::${validated_gateway}:${validated_netmask}:::none oneboot.iso=${ubuntu_iso} oneboot_legacy=1 oneboot.prefix=${input_prefix} oneboot.dns=${validated_dns} cloud-config-url=/dev/null --- || oberror kernel ${ubuntu_url}/vmlinuz ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto ubuntu_legacy_download_failed
+initrd --name initrd ${ubuntu_url}/initrd || oberror initrd ${ubuntu_url}/initrd ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto ubuntu_legacy_download_failed
+boot || oberror boot ${ob_boot_resource} ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto ubuntu_legacy_boot_failed
+
+:boot_ubuntu_legacy_net
+set ubuntu_net_url ${base_url}/ubuntu/netboot/${ubuntu_net_version}
+echo
+echo Starting Ubuntu ${ubuntu_net_version} net install (legacy)
+echo The signed kernel and initrd load over HTTPS; packages come from archive.ubuntu.com.
+echo Network defaults are provided. Partitioning and installation remain interactive.
+echo
+imgfree
+set ob_boot_resource ${ubuntu_net_url}/linux
+kernel ${ubuntu_net_url}/linux initrd=initrd.gz BOOTIF=${bootif} netcfg/choose_interface=${nic_mac} netcfg/disable_autoconfig=true netcfg/get_ipaddress=${validated_ip} netcfg/get_netmask=${validated_netmask} netcfg/get_gateway=${validated_gateway} netcfg/get_nameservers=${validated_dns} netcfg/confirm_static=true mirror/country=manual mirror/http/hostname=archive.ubuntu.com mirror/http/directory=/ubuntu mirror/http/proxy= mirror/suite=${ubuntu_net_suite} apt-setup/security_host=security.ubuntu.com || oberror kernel ${ubuntu_net_url}/linux ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto ubuntu_legacy_download_failed
+initrd --name initrd.gz ${ubuntu_net_url}/initrd.gz || oberror initrd ${ubuntu_net_url}/initrd.gz ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto ubuntu_legacy_download_failed
+boot || oberror boot ${ob_boot_resource} ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto ubuntu_legacy_boot_failed
+
+:ubuntu_legacy_download_failed
+echo
+echo ERROR: A required Ubuntu boot file could not be downloaded.
+echo Check the link, gateway, DNS, and OneBoot server allowlist.
+echo No installer was started and no disk was touched.
+oberror --show
+prompt --key 0x1b Press Esc to return to Ubuntu versions... ||
+goto ${ubuntu_legacy_menu}
+
+:ubuntu_legacy_boot_failed
+echo
+echo ERROR: Ubuntu could not be started after downloading its boot files.
+echo OneBoot supplies no automatic disk actions.
+oberror --show
+prompt --key 0x1b Press Esc to return to Ubuntu versions... ||
+goto ${ubuntu_legacy_menu}
+
+:proxmox_menu
+menu --name proxmox_menu Select Proxmox VE version (Testing)
+item --menu proxmox_menu --gap -- Testing: verify full install and first boot on real hardware
+item --menu proxmox_menu --key 1 boot_proxmox_9 Proxmox VE 9.2 (Testing)
+item --menu proxmox_menu --key 2 boot_proxmox_8 Proxmox VE 8.4 (Testing)
+item --menu proxmox_menu --key 3 boot_proxmox_7 Proxmox VE 7.4 (Testing)
+item --menu proxmox_menu --gap --
+item --menu proxmox_menu --key b main_menu Back to OneBoot menu
+item --menu proxmox_menu --key e network_form Edit network settings
+item --menu proxmox_menu --key n nic_menu Select another NIC
+item --menu proxmox_menu --key s shell Open iPXE shell
+item --menu proxmox_menu --key r reboot Reboot server
+choose --menu proxmox_menu proxmox_choice || goto proxmox_menu
+goto ${proxmox_choice}
+
+:boot_proxmox_9
+set proxmox_version 9.2-1
+goto boot_proxmox
+
+:boot_proxmox_8
+set proxmox_version 8.4-1
+goto boot_proxmox
+
+:boot_proxmox_7
+set proxmox_version 7.4-1
+goto boot_proxmox
+
+:boot_proxmox
+set proxmox_url ${base_url}/proxmox/${proxmox_version}
+echo
+echo Starting Proxmox VE ${proxmox_version} graphical installer (Testing)
+echo Loading the original ISO into RAM over authenticated HTTPS.
+echo 8 GiB RAM recommended. Confirm the final network settings inside Proxmox.
+echo No unattended installation or automatic disk selection is supplied.
+echo Testing: validate the complete installation and first boot on real hardware.
+echo
+imgfree
+set ob_boot_resource ${proxmox_url}/linux26
+kernel ${proxmox_url}/linux26 root=/dev/ram0 ro ramdisk_size=16777216 rw quiet splash=silent || oberror kernel ${proxmox_url}/linux26 ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto proxmox_download_failed
+initrd --name initrd.img ${proxmox_url}/initrd-pxe.img || oberror initrd ${proxmox_url}/initrd-pxe.img ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto proxmox_download_failed
+initrd --name oneboot-proxmox-init ${proxmox_url}/init-oneboot-v1.0 /init mode=755 || oberror initrd ${proxmox_url}/init-oneboot-v1.0 ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto proxmox_download_failed
+initrd --name proxmox.iso ${proxmox_url}/proxmox.iso /proxmox.iso || oberror initrd ${proxmox_url}/proxmox.iso ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto proxmox_download_failed
+boot || oberror boot ${ob_boot_resource} ${nic} ${nic_mac} ${validated_ip}/${input_prefix} ${validated_gateway} ${validated_dns} || goto proxmox_boot_failed
+
+:proxmox_download_failed
+imgfree
+echo
+echo ERROR: A required Proxmox file could not be downloaded.
+echo Check the link, network settings and OneBoot server allowlist.
+echo No installer was started and no disk was touched.
+oberror --show
+prompt --key 0x1b Press Esc to return to Proxmox versions... ||
+goto proxmox_menu
+
+:proxmox_boot_failed
+imgfree
+echo
+echo ERROR: Proxmox could not start. Check available RAM and firmware compatibility.
+echo No OneBoot disk automation exists.
+oberror --show
+prompt --key 0x1b Press Esc to return to Proxmox versions... ||
+goto proxmox_menu

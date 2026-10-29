@@ -28,6 +28,42 @@ static void clear_profile ( void ) {
  if ( image ) unregister_image ( image );
 }
 
+/* Old 4.15/5.4 kernels discard cpio members appended after the vendor gzip.
+ * Put the private profile BEFORE the independently built auto initrd instead.
+ * image_set_len preserves the vendor bytes and uses external image memory.
+ */
+static size_t profile_cpio_entry ( char *out, const char *name,
+                                 const void *data, size_t len, unsigned int mode ) {
+ size_t namesize=strlen(name)+1, pos;
+ snprintf(out,111,"070701%08x%08x%08x%08x%08x%08x%08x%08x%08x%08x%08x%08x%08x",
+          1,mode,0,0,1,0,(unsigned int)len,0,0,0,0,(unsigned int)namesize,0);
+ memcpy(out+110,name,namesize);
+ pos=(110+namesize+3)&~((size_t)3);
+ if (len) memcpy(out+pos,data,len);
+ return (pos+len+3)&~((size_t)3);
+}
+
+static int prepend_profile ( const char *name ) {
+ struct image *profile=find_image("oneboot-profile"), *initrd=find_image(name);
+ char prefix[1024];
+ size_t prefix_len, vendor_len;
+ int rc;
+ if (!profile || !initrd || profile==initrd || profile->len>640 ||
+     initrd->len<6 || memcmp(initrd->data,"070701",6)) return -EINVAL;
+ memset(prefix,0,sizeof(prefix));
+ prefix_len=profile_cpio_entry(prefix,"oneboot-profile",profile->data,profile->len,0100600);
+ prefix_len+=profile_cpio_entry(prefix+prefix_len,"TRAILER!!!",NULL,0,0);
+ vendor_len=initrd->len;
+ if ((rc=image_set_len(initrd,vendor_len+prefix_len)) != 0) goto out;
+ memmove((char *)initrd->rwdata+prefix_len,initrd->data,vendor_len);
+ memcpy(initrd->rwdata,prefix,prefix_len);
+ memset(profile->rwdata,0,profile->len);
+ clear_profile();
+out:
+ memset(prefix,0,sizeof(prefix));
+ return rc;
+}
+
 static int obpayload_exec ( int argc, char **argv ) {
  unsigned int i;
  int rc;
@@ -87,6 +123,7 @@ static int obprofile_exec ( int argc, char **argv ) {
  int rc=-EINVAL;
  static const char hex[]="0123456789abcdef";
  if ( argc==2 && !strcmp(argv[1],"clear") ) { clear_profile(); return 0; }
+ if ( argc==3 && !strcmp(argv[1],"prepend") ) return prepend_profile(argv[2]);
  if ( argc!=5 || (strcmp(argv[1],"check") && strcmp(argv[1],"create")) ) {
   printf("Usage: obprofile check|create <hostname-setting> <password-setting> <confirmation-setting>\n");
   return -EINVAL;

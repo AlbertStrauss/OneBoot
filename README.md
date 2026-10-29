@@ -1,78 +1,55 @@
-# OneBoot
+# OneBoot v1.4
 
-OneBoot v1.3 starts directly into its static NIC/IPv4 configuration and OS menu,
-without netboot.xyz. Ubuntu Server 22.04.5, 24.04.4 and 26.04 offer Manual or Auto.
-Manual is the default. Auto requires a hostname, the same visible password
-twice, and explicit Go. It installs boot/root on the first eligible fixed disk;
-it does not create RAID or wipe all disks. Active holders on the first disk
-cause a stop for operator review.
+Small standalone BIOS/UEFI network bootstrap ISO with static NIC/IP setup,
+visible transfer diagnostics and Ubuntu Manual / Auto selection.
 
-The operator's password is used for root and the sudo account `user`, including
-SSH. Credentials travel in a private RAM cpio file, outside kernel arguments
-and the archived autoinstall YAML. The installer does not have a default password.
+Version 1.4 adds classic automatic installation for Ubuntu 18.04 and 20.04,
+following the supplied Flux installer backend. Ubuntu 22/24/26 keep their
+existing paired live/Subiquity path. The ISO contains OneBoot directly.
 
-**Candidate delivered with a BIOS26 startup limitation.**
+Auto asks for hostname and the same visible password twice, then requires
+explicit Go. It installs to the first eligible fixed disk, enables the chosen
+password for root and `user` over SSH and configures the selected static
+network. Other disks are outside its partition layout. Manual remains the
+default and starts the ordinary installer.
 
-Five clean full Auto installations passed: Ubuntu22 and Ubuntu24 in BIOS/UEFI,
-and Ubuntu26 in UEFI. Each included a cold boot without the ISO, chosen root/user
-password login, hostname/static routes and unchanged second-disk data.
-The original Ubuntu26 BIOS install reached its last late command before the
-observer expired. Its preserved target later cold-booted successfully: chosen
-root/user passwords, hostname/static routes and APT configuration passed.
-Full installation completion was not observed. A subsequent emulated BIOS26
-startup failed at netplan apply; an operator service restart did not produce a
-completed install. Full/unattended Ubuntu26 BIOS installation remains unqualified.
-It needs validation on the actual server hardware. All physical-controller/iLO
-qualification remains separate from these disposable VM checks.
+For Ubuntu 18/20, Auto downloads pinned boot files from the public GitHub boot
+release and signed packages from the Ubuntu archive. Manual Full ISO retains
+the existing VPS path. The new classic Auto route needs no VPS allowlist entry.
 
-UEFI used WHPX; BIOS used TCG. Ubuntu26 BIOS required instruction-counted
-TCG time (HPET on) to pass an early timer panic. Later its initial network apply
-returned `Call failed: Connection timed out`; media checks passed and networking
-became available. Slow emulation is suspected, not established as the physical
-hardware cause. No noapic or timing workaround was added to the product ISO.
-The original failure, service-restart attempt and separate late-disk cold boot
-are included in evidence. No failed/partial run is counted as a full install pass.
+See [the v1.4 guide](docs/ONEBOOT-V1.4-AUTOINSTALL.md) for disk rules, downloads,
+credential transport, diagnostics and qualification. The delivered ISO and
+evidence identify the exact tested bytes. Physical controller/iLO and legacy
+BIOS installation qualification are separate from UEFI virtual-machine tests.
 
-Thirteen helper regression tests, actual ISO/static checks, visible invalid-password
-UI checks, native Manual Ubuntu24 without disk writes, and existing-menu/download-error
-compatibility checks passed. Production OneBoot v1.0 and its service policy remain unchanged.
+The 22/24/26 implementation and its existing BIOS26 limitation are documented
+in [the retained v1.3 guide](docs/ONEBOOT-V1.3-AUTOINSTALL.md).
 
-## Boot resources
+Ubuntu18 and Ubuntu20 each passed complete unattended UEFI/TCG installation
+and a separate cold boot on the final v1.4 ISO, including both SSH logins,
+static IPv4/DNS, services and an unchanged larger second disk. The delivered
+validation archive records the exact ISO hash, 22 helper checks, ten UI cases
+and twelve inherited menu captures. The physical/iLO and legacy BIOS full
+install qualification limits are described in the v1.4 guide.
 
-Original, matched Ubuntu kernel/initrd pairs are published in
-[ubuntu-live-boot-v1.3](https://github.com/AlbertStrauss/OneBoot/releases/tag/ubuntu-live-boot-v1.3).
-The publishing workflow verifies the exact Canonical ISO SHA256 before extracting
-and verifying each pair. Versions and hashes are pinned in
-`config/ubuntu-autoinstall.json`.
+## Source and build
 
-The full ISO downloads into RAM from Canonical or a measured public Ubuntu
-release mirror. Fixed versions retain their exact filename, and the initrd's
-compose UUID check stays enabled. This is not a runtime full-ISO SHA256 check.
-Allow at least 8 GiB RAM and internet access to the HTTPS boot/download sources.
-The loaders are unsigned; use ordinary BIOS/UEFI boot with Secure Boot disabled.
+Use `scripts/build-oneboot-v1.4-vps.py` with an isolated
+`ONEBOOT_PROJECT_ROOT=/srv/oneboot/staging/oneboot-v1.4-autoinstall-<date>`.
+It requires the existing verified OneBoot asset store, pinned iPXE commit
+`8958a4a66022640d622dec1ad5f2ddf77adfcd0f` and the listed host build tools.
+Large OS images are external verified inputs. The corresponding source
+archive includes the pinned iPXE source and public build certificates.
 
-Ubuntu Auto avoids installer self-refresh and update/security pockets during
-installation, then restores the installed system's repositories. Other OS
-entries retain their existing interactive VPS-backed paths and access policy.
+`scripts/prepare-oneboot-v1.4-legacy-assets.py` builds the separate automatic
+18/20 initrds from pinned Canonical inputs. The publishing workflow checks
+hashes and module ABI and publishes a new immutable boot resource revision.
+It contains no per-server credential.
 
-## Source and builds
+Run the helper checks and actual-ISO verifier described in the v1.4 guide.
+Disposable VM tests use virtual disks only; they verify first boot, both SSH
+logins, static network, DNS and secondary-disk sentinels.
 
-See `docs/ONEBOOT-V1.3-AUTOINSTALL.md` and `NOTICE-FLUXBILLING.md`. The Ubuntu
-helpers are adapted from pinned FluxBilling source with GPL attribution retained.
-The first-disk policy, private credential transport and Manual/Auto workflow
-are OneBoot adaptations.
-
-`scripts/build-oneboot-v1.3-vps.py` builds in a separate
-`/srv/oneboot/staging/oneboot-v1.3-autoinstall-*` root. It requires the existing
-pinned OneBoot asset store, the iPXE checkout at
-`8958a4a66022640d622dec1ad5f2ddf77adfcd0f`, Linux build tools, xorriso, mtools,
-syslinux and current public CA certificates. It does not replace a delivered
-production ISO. Full Ubuntu ISOs and the other OS asset store are not in Git.
-
-Validation scripts cover generated profiles and repository restoration,
-first-disk selection/protection, actual ISO contents, BIOS/UEFI menus and full
-disposable two-disk installs. Windows test helpers use only project disk files
-and loopback management ports; their credentials are synthetic VM test data.
-
-The earlier Ubuntu24 split-image mirror under `mirrors/` is historical and is
-not used by this autoinstall design.
+Flux source is retained at commit
+`594deb47a8d6e73d6597168733248fec4f572608`, with its GPL license and attribution
+in `vendor/fluxbilling` and `NOTICE-FLUXBILLING.md`.

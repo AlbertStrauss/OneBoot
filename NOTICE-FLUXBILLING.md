@@ -1,6 +1,6 @@
 # FluxBilling source attribution
 
-OneBoot v1.3's Ubuntu live helpers are adapted from
+OneBoot v1.3/v1.4's Ubuntu live and classic installer helpers are adapted from
 https://github.com/FluxBilling-app/FluxBilling-OS-Installer
 at commit `594deb47a8d6e73d6597168733248fec4f572608`.
 
@@ -16,3 +16,11 @@ OneBoot diagnostics/branding and the Manual/Auto workflow. The upstream BIOS
 USB keyboard policy and HP iLO4 EFI keyboard patch are retained for the new
 loader build. Physical qualification of the upstream ISO does not establish
 qualification of this modified ISO.
+
+The v1.4 classic Ubuntu 18/20 path also draws on the pinned upstream
+`src/preseed.cfg` and `src/sign-boot-images.sh`, retained under the vendor
+directory. Its automatic-only initrd keeps the upstream prepend layout and
+exact-kernel virtio module approach. OneBoot supplies a private credential
+prefix, locked initial accounts, explicit first-disk-only partition policy,
+static target netplan and root SSH setup. No upstream erase-all-disks policy
+is included.

@@ -94,8 +94,12 @@ class WindowsVM:
             if not variables.exists():shutil.copyfile(self.root/'firmware/OVMF_VARS_4M.fd',variables)
             cmd+=['-drive','if=pflash,format=raw,readonly=on,file='+str(self.root/'firmware/OVMF_CODE_4M.fd'),
                   '-drive','if=pflash,format=raw,file='+str(variables)]
-        if self.disks:cmd+=['-drive','if=virtio,format=qcow2,file='+str(self.case/'target.qcow2'),
-                            '-drive','if=virtio,format=raw,file='+str(self.case/'other.raw')]
+        # Only disposable qualification images use this opt-in cache mode.
+        # It avoids host flush latency; it does not test power-loss durability.
+        disk_cache=os.environ.get('ONEBOOT_TEST_DISK_CACHE','writeback')
+        assert disk_cache in ('writeback','unsafe')
+        if self.disks:cmd+=['-drive','if=virtio,format=qcow2,cache='+disk_cache+',file='+str(self.case/'target.qcow2'),
+                            '-drive','if=virtio,format=raw,cache='+disk_cache+',file='+str(self.case/'other.raw')]
         self.stderr=(self.case/('qemu-install.log' if self.iso else 'qemu-firstboot.log')).open('w')
         self.p=subprocess.Popen(cmd,stdout=self.stderr,stderr=self.stderr,creationflags=subprocess.CREATE_NO_WINDOW)
         deadline=time.monotonic()+30
@@ -113,7 +117,7 @@ class WindowsVM:
         self.reader=threading.Thread(target=self.read_serial,daemon=True);self.reader.start()
         metadata={'pid':self.p.pid,'qmp_port':self.qmp_port,'serial_port':self.serial_port,'ssh_port':self.port,
             'cpu':self.cpu,'memory_mb':self.memory,'firmware':self.firmware,'network_model':self.nic,'machine':self.machine,
-            'hpet':self.hpet,'icount':self.icount,'qemu_command':cmd}
+            'hpet':self.hpet,'icount':self.icount,'disk_cache':disk_cache,'qemu_command':cmd}
         (self.case/'control.json').write_text(json.dumps(metadata))
         (self.case/('control-install.json' if self.iso else 'control-firstboot.json')).write_text(json.dumps(metadata))
         return self
