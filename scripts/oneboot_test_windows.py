@@ -88,6 +88,9 @@ class WindowsVM:
              '-display','none','-chardev',f'socket,id=ser,host=127.0.0.1,port={self.serial_port},server=on,wait=off',
              '-serial','chardev:ser','-qmp',f'tcp:127.0.0.1:{self.qmp_port},server=on,wait=off','-no-reboot']
         if self.icount:cmd+=['-icount','shift='+self.icount+',align=off,sleep=on']
+        capture=os.environ.get('ONEBOOT_TEST_PCAP','0')
+        assert capture in ('0','1')
+        if capture=='1':cmd+=['-object','filter-dump,id=trace,netdev=n,file='+str(self.case/'network.pcap')]
         if self.iso:cmd+=['-cdrom',str(self.iso)]
         if self.firmware=='uefi':
             variables=self.case/'OVMF_VARS.fd'

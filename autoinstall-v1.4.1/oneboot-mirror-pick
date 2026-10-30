@@ -1,0 +1,155 @@
+#!/bin/sh
+# OneBoot v1.4.1: never contact a public ISO source before explicit fallback.
+# Sourced inside the live initramfs. Writes only RAM download/log files.
+oneboot_policy_init() {
+    [ -z "${oneboot_policy_ready:-}" ] || return 0
+    oneboot_policy_ready=1
+    oneboot_source=vps
+    for ob_arg in $(cat "${oneboot_cmdline:-/proc/cmdline}"); do
+        case "$ob_arg" in
+            oneboot.source=*) oneboot_source=${ob_arg#oneboot.source=} ;;
+            oneboot.primary=*) oneboot_primary=${ob_arg#oneboot.primary=} ;;
+            oneboot.fallback=*) oneboot_fallback=${ob_arg#oneboot.fallback=} ;;
+            oneboot.iso_sha256=*) oneboot_iso_sha256=${ob_arg#oneboot.iso_sha256=} ;;
+            oneboot.series=*) oneboot_series=${ob_arg#oneboot.series=} ;;
+        esac
+    done
+    oneboot_log=${oneboot_download_log:-/run/oneboot-download.log}
+    mkdir -p "${oneboot_log%/*}"
+    : >> "$oneboot_log"
+}
+
+oneboot_say() {
+    printf 'OneBoot: %s\n' "$*" >> "$oneboot_log"
+    if command -v oneboot_consoles >/dev/null 2>&1; then
+        for ob_c in $(oneboot_consoles); do
+            printf 'OneBoot: %s\n' "$*" > "$ob_c" 2>/dev/null
+        done
+    else
+        for ob_c in /dev/tty1 /dev/ttyS0 /dev/console; do
+            [ -c "$ob_c" ] && printf 'OneBoot: %s\n' "$*" > "$ob_c" 2>/dev/null
+        done
+    fi
+    return 0
+}
+
+oneboot_hash_file() {
+    if [ -x /opt/oneboot-wget/sha256sum ]; then
+        /opt/oneboot-wget/ld-linux-x86-64.so.2 --library-path /opt/oneboot-wget \
+            /opt/oneboot-wget/sha256sum "$1" | awk '{print $1}'
+    elif command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$1" | awk '{print $1}'
+    else
+        openssl dgst -sha256 "$1" | awk '{print $NF}'
+    fi
+}
+
+oneboot_fetch_once() { # URL, RAM file
+    oneboot_say "Source: $oneboot_source; fetching $1"
+    if [ -x /opt/oneboot-wget/wget ]; then
+        /opt/oneboot-wget/ld-linux-x86-64.so.2 --library-path /opt/oneboot-wget \
+            /opt/oneboot-wget/wget --https-only --max-redirect=5 --timeout=30 --tries=1 \
+            --ca-certificate=/opt/oneboot-wget/ca-certificates.crt \
+            --append-output="$oneboot_log" --show-progress -c -O "$2" "$1"
+    else
+        # Ubuntu's initramfs BusyBox can omit -T entirely. Use the portable
+        # supported wget options, as in the original working live path.
+        wget -S -c -O "$2" "$1" >> "$oneboot_log" 2>&1
+    fi
+    ob_rc=$?
+    if [ "$ob_rc" -ne 0 ]; then
+        oneboot_say "Fetch failed (exit $ob_rc). URL: $1"
+        ob_details=$(tail -n 6 "$oneboot_log")
+        printf '%s\n' "$ob_details" | while IFS= read -r ob_detail; do
+            oneboot_say "Detail: $ob_detail"
+        done
+        return "$ob_rc"
+    fi
+    case "${oneboot_iso_sha256:-}" in
+        ''|*[!0-9a-f]*) oneboot_say 'Missing pinned ISO hash; refusing this image.'; return 1 ;;
+    esac
+    ob_actual=$(oneboot_hash_file "$2")
+    if [ "$ob_actual" != "$oneboot_iso_sha256" ]; then
+        oneboot_say "ISO SHA256 mismatch. Expected $oneboot_iso_sha256; received $ob_actual"
+        rm -f "$2"
+        return 1
+    fi
+    oneboot_validate_download "$2" || {
+        oneboot_say 'ISO mount or installer identity validation failed.'
+        rm -f "$2"
+        return 1
+    }
+    oneboot_say 'ISO verified. Continuing the selected installation mode.'
+}
+
+# Legacy Full ISO verifies/mounts after this shared fetch returns.
+oneboot_validate_download() { return 0; }
+
+oneboot_prompt() {
+    if [ "$oneboot_source" = vps ]; then
+        oneboot_say 'VPS fetch failed. Public sources have NOT been tried automatically.'
+    else
+        oneboot_say 'The selected public fallback failed; choose the next action.'
+    fi
+    oneboot_say 'Type r + Enter: retry VPS; f + Enter: try fallback; s + Enter: diagnostic shell.'
+    oneboot_say "Details: $oneboot_log (RAM). Check NIC, IP, gateway, DNS and allowlist."
+    command -v chvt >/dev/null 2>&1 && chvt 1
+    oneboot_reply=
+    read -r oneboot_reply < "${oneboot_input_console:-/dev/console}" || return 1
+}
+
+oneboot_fallback_urls() {
+    printf '%s\n' "$oneboot_fallback"
+    # Exact filename and hash only: no latest release or geographic guessing.
+    case "${oneboot_series:-}" in
+        22.04|24.04|26.04)
+            for ob_mirror in https://ftp.halifax.rwth-aachen.de/ubuntu-releases \
+                https://mirror.init7.net/ubuntu-releases \
+                https://ubuntu.mirrors.ovh.net/ubuntu-releases \
+                https://ftp.lysator.liu.se/pub/ubuntu-releases; do
+                printf '%s/%s/%s\n' "$ob_mirror" "$oneboot_series" "${oneboot_fallback##*/}"
+            done ;;
+    esac
+}
+
+oneboot_fetch_candidates() { # RAM output
+    oneboot_policy_init
+    case "$oneboot_source" in vps|fallback) ;; *) return 1 ;; esac
+    [ -n "${oneboot_primary:-}" ] && [ -n "${oneboot_fallback:-}" ] || return 1
+    while :; do
+        if [ "$oneboot_source" = vps ]; then
+            if oneboot_fetch_once "$oneboot_primary" "$1"; then return 0; fi
+        else
+            # Reached only after f+Enter here, or explicit iPXE Try fallback.
+            for ob_url in $(oneboot_fallback_urls); do
+                rm -f "$1"
+                if oneboot_fetch_once "$ob_url" "$1"; then return 0; fi
+            done
+            oneboot_say 'The explicitly selected public fallback sources failed.'
+        fi
+        oneboot_prompt || { sleep 1; continue; }
+        case "$oneboot_reply" in
+            f|F) oneboot_source=fallback; rm -f "$1" ;;
+            r|R) oneboot_source=vps; rm -f "$1" ;;
+            s|S) sh -i < "${oneboot_input_console:-/dev/console}" > "${oneboot_input_console:-/dev/console}" 2>&1 ;;
+        esac
+    done
+}
+
+oneboot_policy_do_urlmount() {
+    oneboot_policy_init
+    modprobe "${MP_QUIET}" isofs
+    UUID=$(cat "${oneboot_confdir:-/conf}/uuid.conf" 2>/dev/null)
+    oneboot_validate_download() {
+        mount -o ro "$1" "$mountpoint" || return 1
+        if is_casper_path "$mountpoint" && matches_uuid "$mountpoint"; then return 0; fi
+        umount "$mountpoint"
+        return 1
+    }
+    oneboot_fetch_candidates "${oneboot_primary##*/}"
+}
+
+# Unrelated boot paths keep their original casper behavior.
+case " $(cat "${oneboot_cmdline:-/proc/cmdline}") " in
+    *' oneboot.policy=vps-first-v1 '*) do_urlmount() { oneboot_policy_do_urlmount; } ;;
+esac

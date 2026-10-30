@@ -1,55 +1,44 @@
-# OneBoot v1.4
+# OneBoot v1.4.1
 
-Small standalone BIOS/UEFI network bootstrap ISO with static NIC/IP setup,
-visible transfer diagnostics and Ubuntu Manual / Auto selection.
+Standalone BIOS/UEFI bootstrap ISO with static NIC/IP setup and Ubuntu
+Manual/Auto selection. This patch restores **VPS first for every Ubuntu entry**.
+GitHub and public mirrors are additional, explicitly selected fallback sources.
 
-Version 1.4 adds classic automatic installation for Ubuntu 18.04 and 20.04,
-following the supplied Flux installer backend. Ubuntu 22/24/26 keep their
-existing paired live/Subiquity path. The ISO contains OneBoot directly.
+If a VPS boot fetch fails, the untimed menu offers Show fetch details, Retry VPS,
+Try fallback, Edit network, Select NIC and Back. A failed full ISO fetch after
+the kernel starts also waits for the operator: r+Enter retries VPS and f+Enter
+allows public fallback. No public mirror probe/race runs before that choice.
 
-Auto asks for hostname and the same visible password twice, then requires
-explicit Go. It installs to the first eligible fixed disk, enables the chosen
-password for root and `user` over SSH and configures the selected static
-network. Other disks are outside its partition layout. Manual remains the
-default and starts the ordinary installer.
+Manual remains interactive and uses the VPS Full ISO path. Auto retains the
+hostname, visible password entered twice, explicit Go, first eligible fixed
+disk and chosen root/user password SSH. Ubuntu18/20 Auto uses the classic
+preseed installer; Ubuntu22/24/26 use the existing live/Subiquity installer.
+The ISO contains OneBoot directly, without netboot.xyz.
 
-For Ubuntu 18/20, Auto downloads pinned boot files from the public GitHub boot
-release and signed packages from the Ubuntu archive. Manual Full ISO retains
-the existing VPS path. The new classic Auto route needs no VPS allowlist entry.
-
-See [the v1.4 guide](docs/ONEBOOT-V1.4-AUTOINSTALL.md) for disk rules, downloads,
-credential transport, diagnostics and qualification. The delivered ISO and
-evidence identify the exact tested bytes. Physical controller/iLO and legacy
-BIOS installation qualification are separate from UEFI virtual-machine tests.
-
-The 22/24/26 implementation and its existing BIOS26 limitation are documented
-in [the retained v1.3 guide](docs/ONEBOOT-V1.3-AUTOINSTALL.md).
-
-Ubuntu18 and Ubuntu20 each passed complete unattended UEFI/TCG installation
-and a separate cold boot on the final v1.4 ISO, including both SSH logins,
-static IPv4/DNS, services and an unchanged larger second disk. The delivered
-validation archive records the exact ISO hash, 22 helper checks, ten UI cases
-and twelve inherited menu captures. The physical/iLO and legacy BIOS full
-install qualification limits are described in the v1.4 guide.
+See [the v1.4.1 guide](docs/ONEBOOT-V1.4.1-VPS-FIRST.md) for exact source rules,
+classic package downloads, legacy manual fallback behavior and validation scope.
+The exact ISO passed full unattended Ubuntu24/26 UEFI installation and cold-boot
+checks from VPS, interactive Manual boot checks for both, eight policy tests,
+and all 24 BIOS/UEFI VPS-failure menu/source tests. See the guide for limits.
+Earlier v1.4/v1.3 guides retain historical qualification results; their old
+GitHub-first source policy is superseded here.
 
 ## Source and build
 
-Use `scripts/build-oneboot-v1.4-vps.py` with an isolated
-`ONEBOOT_PROJECT_ROOT=/srv/oneboot/staging/oneboot-v1.4-autoinstall-<date>`.
-It requires the existing verified OneBoot asset store, pinned iPXE commit
-`8958a4a66022640d622dec1ad5f2ddf77adfcd0f` and the listed host build tools.
-Large OS images are external verified inputs. The corresponding source
-archive includes the pinned iPXE source and public build certificates.
+Build in a new isolated `ONEBOOT_PROJECT_ROOT` named
+`/srv/oneboot/staging/oneboot-v1.4.1-autoinstall-<date>` with
+`scripts/build-oneboot-v1.4.1-vps.py`. Verified baseline OS assets are external
+inputs; existing payloads are not overwritten. The versioned legacy download
+handlers are prepared as root by `scripts/prepare-oneboot-v1.4.1-vps-assets.py`,
+which preserves the existing asset store owner and web-readable group.
 
-`scripts/prepare-oneboot-v1.4-legacy-assets.py` builds the separate automatic
-18/20 initrds from pinned Canonical inputs. The publishing workflow checks
-hashes and module ABI and publishes a new immutable boot resource revision.
-It contains no per-server credential.
+The source archive includes public build inputs, attribution and the pinned
+upstream iPXE source. `scripts/verify-oneboot-v1.4.1.py` inspects the actual ISO;
+`scripts/test-oneboot-vps-policy.py` executes the gated download policy and C
+profile retry; `scripts/test-oneboot-vps-fault-ui.py` records actual-ISO source
+failure menus and traffic. Full test runs use disposable virtual disks only.
 
-Run the helper checks and actual-ISO verifier described in the v1.4 guide.
-Disposable VM tests use virtual disks only; they verify first boot, both SSH
-logins, static network, DNS and secondary-disk sentinels.
-
-Flux source is retained at commit
-`594deb47a8d6e73d6597168733248fec4f572608`, with its GPL license and attribution
-in `vendor/fluxbilling` and `NOTICE-FLUXBILLING.md`.
+Flux source remains pinned at `594deb47a8d6e73d6597168733248fec4f572608`, with
+its GPL license and attribution in `vendor/fluxbilling` and
+`NOTICE-FLUXBILLING.md`. Physical server/controller/iLO qualification is separate
+from the recorded VM checks.
